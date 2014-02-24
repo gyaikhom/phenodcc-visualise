@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<persistence xmlns="http://java.sun.com/xml/ns/persistence" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="2.0" xsi:schemaLocation="http://java.sun.com/xml/ns/persistence http://java.sun.com/xml/ns/persistence/persistence_2_0.xsd">
+    <persistence-unit name="org.mousephenotype.dcc.visualise.entities.pu" transaction-type="RESOURCE_LOCAL">
+        <provider>org.eclipse.persistence.jpa.PersistenceProvider</provider>
+        <!-- entities from phenodcc-entities-impress package -->
+        <class>org.mousephenotype.dcc.entities.impress.Pipeline</class>
+        <class>org.mousephenotype.dcc.entities.impress.ParamOption</class>
+        <class>org.mousephenotype.dcc.entities.impress.ParamMpterm</class>
+        <class>org.mousephenotype.dcc.entities.impress.ParameterHasOptions</class>
+        <class>org.mousephenotype.dcc.entities.impress.PipelineHasProcedures</class>
+        <class>org.mousephenotype.dcc.entities.impress.ProcedureType</class>
+        <class>org.mousephenotype.dcc.entities.impress.Parameter</class>
+        <class>org.mousephenotype.dcc.entities.impress.ProcedureHasParameters</class>
+        <class>org.mousephenotype.dcc.entities.impress.ProcedureHasSuperType</class>
+        <class>org.mousephenotype.dcc.entities.impress.ParamIncrement</class>
+        <class>org.mousephenotype.dcc.entities.impress.Procedure</class>
+        <class>org.mousephenotype.dcc.entities.impress.ProcedureWeek</class>
+        <class>org.mousephenotype.dcc.entities.impress.Units</class>
+        <class>org.mousephenotype.dcc.entities.impress.SectionTitle</class>
+        <class>org.mousephenotype.dcc.entities.impress.Section</class>
+        <class>org.mousephenotype.dcc.entities.impress.Sop</class>
+
+        <!-- entities from phenodcc-entities-overviews package -->
+        <class>org.mousephenotype.dcc.entities.overviews.Genotype</class>
+        <class>org.mousephenotype.dcc.entities.overviews.ACentre</class>
+        <class>org.mousephenotype.dcc.entities.overviews.Strain</class>
+        <class>org.mousephenotype.dcc.entities.overviews.AnimalOverview</class>
+        <class>org.mousephenotype.dcc.entities.overviews.MeasurementsPerformed</class>
+        <class>org.mousephenotype.dcc.entities.overviews.MeasuredValues</class>
+        <class>org.mousephenotype.dcc.entities.overviews.ProceduresPerformed</class>
+        <class>org.mousephenotype.dcc.entities.overviews.ProcedureAnimalOverview</class>
+
+        <!-- entities from phenodcc-entities-qc package -->
+        <class>org.mousephenotype.dcc.entities.qc.IssueStatus</class>
+        <class>org.mousephenotype.dcc.entities.qc.DataContext</class>
+        <class>org.mousephenotype.dcc.entities.qc.AnIssue</class>
+        <class>org.mousephenotype.dcc.entities.qc.AnAction</class>
+        <class>org.mousephenotype.dcc.entities.qc.ActionType</class>
+        <class>org.mousephenotype.dcc.entities.qc.AUser</class>
+        <class>org.mousephenotype.dcc.entities.qc.CitedDataPoint</class>
+        <class>org.mousephenotype.dcc.entities.qc.Sessions</class>
+        <class>org.mousephenotype.dcc.entities.qc.History</class>
+        <class>org.mousephenotype.dcc.entities.qc.AState</class>
+
+        <!-- entities from phenodcc-entities-context package -->
+        <class>org.mousephenotype.dcc.entities.context.Types</class>
+        <class>org.mousephenotype.dcc.entities.context.Context</class>
+
+        <!-- entities from phenodcc-entities-raw package -->
+        <class>org.mousephenotype.dcc.entities.raw.Submissionset</class>
+        <class>org.mousephenotype.dcc.entities.raw.ProcedureFromRaw</class>
+        <class>org.mousephenotype.dcc.entities.raw.Submission</class>
+        <class>org.mousephenotype.dcc.entities.raw.Centreprocedureset</class>
+        <class>org.mousephenotype.dcc.entities.raw.Seriesparameter</class>
+        <class>org.mousephenotype.dcc.entities.raw.Centreprocedure</class>
+        <class>org.mousephenotype.dcc.entities.raw.Line</class>
+        <class>org.mousephenotype.dcc.entities.raw.Simpleparameter</class>
+
+        <!-- entities from phenodcc-entities-crawler package -->
+        <class>org.mousephenotype.dcc.crawler.entities.AResource</class>
+        <class>org.mousephenotype.dcc.crawler.entities.AStatus</class>
+        <class>org.mousephenotype.dcc.crawler.entities.AUser</class>
+        <class>org.mousephenotype.dcc.crawler.entities.AnException</class>
+        <class>org.mousephenotype.dcc.crawler.entities.Centre</class>
+        <class>org.mousephenotype.dcc.crawler.entities.Credential</class>
+        <class>org.mousephenotype.dcc.crawler.entities.FileSource</class>
+        <class>org.mousephenotype.dcc.crawler.entities.FileSourceHasZip</class>
+        <class>org.mousephenotype.dcc.crawler.entities.Phase</class>
+        <class>org.mousephenotype.dcc.crawler.entities.ProcessingType</class>
+        <class>org.mousephenotype.dcc.crawler.entities.ResourceState</class>
+        <class>org.mousephenotype.dcc.crawler.entities.SourceProtocol</class>
+        <class>org.mousephenotype.dcc.crawler.entities.XmlFile</class>
+        <class>org.mousephenotype.dcc.crawler.entities.XmlLog</class>
+        <class>org.mousephenotype.dcc.crawler.entities.ZipAction</class>
+        <class>org.mousephenotype.dcc.crawler.entities.ZipDownload</class>
+        <class>org.mousephenotype.dcc.crawler.entities.ZipFile</class>
+        <class>org.mousephenotype.dcc.crawler.entities.ZipLog</class>
+        <class>org.mousephenotype.dcc.crawler.entities.CrawlingSession</class>
+        <class>org.mousephenotype.dcc.crawler.entities.SessionTask</class>
+        
+        <!-- project entities -->
+        <class>org.mousephenotype.dcc.visualise.entities.GeneStrain</class>
+        <class>org.mousephenotype.dcc.visualise.entities.ParameterData</class>
+        <class>org.mousephenotype.dcc.visualise.entities.Annotation</class>
+    
+        <properties>
+            <property name="javax.persistence.jdbc.url" value="${db.url}"/>
+            <property name="javax.persistence.jdbc.driver" value="${db.driver}"/>
+            <property name="javax.persistence.jdbc.user" value="${db.user}"/>
+            <property name="javax.persistence.jdbc.password" value="${db.password}"/>
+        </properties>
+    </persistence-unit>
+</persistence>

@@ -1,0 +1,693 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="744.09448819"
+   height="1052.3622047"
+   id="svg2"
+   version="1.1"
+   inkscape:version="0.48.3.1 r9886"
+   sodipodi:docname="logo.svg">
+  <defs
+     id="defs4">
+    <linearGradient
+       id="linearGradient3933">
+      <stop
+         style="stop-color:#e6e6e6;stop-opacity:1;"
+         offset="0"
+         id="stop3935" />
+      <stop
+         style="stop-color:#ffffff;stop-opacity:1;"
+         offset="1"
+         id="stop3937" />
+    </linearGradient>
+    <linearGradient
+       id="linearGradient3856">
+      <stop
+         style="stop-color:#929292;stop-opacity:1"
+         offset="0"
+         id="stop3858" />
+      <stop
+         style="stop-color:#000000;stop-opacity:0;"
+         offset="1"
+         id="stop3860" />
+    </linearGradient>
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient3756"
+       id="linearGradient3762"
+       x1="86.873123"
+       y1="86.151283"
+       x2="-28.28429"
+       y2="-27.995962"
+       gradientUnits="userSpaceOnUse" />
+    <linearGradient
+       id="linearGradient3756">
+      <stop
+         style="stop-color:#00b61a;stop-opacity:1;"
+         offset="0"
+         id="stop3758" />
+      <stop
+         style="stop-color:#00e01f;stop-opacity:1;"
+         offset="1"
+         id="stop3760" />
+    </linearGradient>
+    <linearGradient
+       gradientTransform="translate(515.73893,99.082921)"
+       y2="-27.995962"
+       x2="-28.28429"
+       y1="86.151283"
+       x1="86.873123"
+       gradientUnits="userSpaceOnUse"
+       id="linearGradient3785"
+       xlink:href="#linearGradient3756"
+       inkscape:collect="always" />
+    <radialGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient3756-8"
+       id="radialGradient3820"
+       cx="605.71429"
+       cy="343.07648"
+       fx="605.71429"
+       fy="343.07648"
+       r="17.992857"
+       gradientTransform="matrix(1,0,0,0.96030175,0,13.619535)"
+       gradientUnits="userSpaceOnUse" />
+    <linearGradient
+       id="linearGradient3756-8">
+      <stop
+         style="stop-color:#75ff3c;stop-opacity:1;"
+         offset="0"
+         id="stop3758-7" />
+      <stop
+         style="stop-color:#3ee421;stop-opacity:1;"
+         offset="1"
+         id="stop3760-9" />
+    </linearGradient>
+    <radialGradient
+       r="17.992857"
+       fy="341.02228"
+       fx="606.22894"
+       cy="341.02228"
+       cx="606.22894"
+       gradientTransform="matrix(1,0,0,0.96030175,0,13.619535)"
+       gradientUnits="userSpaceOnUse"
+       id="radialGradient3837"
+       xlink:href="#linearGradient3756-8"
+       inkscape:collect="always" />
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient3856"
+       id="linearGradient3862"
+       x1="605.55334"
+       y1="327.29529"
+       x2="606.90448"
+       y2="359.84399"
+       gradientUnits="userSpaceOnUse" />
+    <radialGradient
+       r="17.992857"
+       fy="341.02228"
+       fx="606.22894"
+       cy="341.02228"
+       cx="606.22894"
+       gradientTransform="matrix(1,0,0,0.96030175,0,13.619535)"
+       gradientUnits="userSpaceOnUse"
+       id="radialGradient3837-1"
+       xlink:href="#linearGradient3756-8-6"
+       inkscape:collect="always" />
+    <linearGradient
+       id="linearGradient3756-8-6">
+      <stop
+         style="stop-color:#e0e0e0;stop-opacity:1;"
+         offset="0"
+         id="stop3758-7-6" />
+      <stop
+         style="stop-color:#c3c3c3;stop-opacity:1;"
+         offset="1"
+         id="stop3760-9-4" />
+    </linearGradient>
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient3856-3"
+       id="linearGradient3862-2"
+       x1="605.55334"
+       y1="327.29529"
+       x2="606.90448"
+       y2="359.84399"
+       gradientUnits="userSpaceOnUse" />
+    <linearGradient
+       id="linearGradient3856-3">
+      <stop
+         style="stop-color:#929292;stop-opacity:1"
+         offset="0"
+         id="stop3858-0" />
+      <stop
+         style="stop-color:#000000;stop-opacity:0;"
+         offset="1"
+         id="stop3860-7" />
+    </linearGradient>
+    <radialGradient
+       r="17.992857"
+       fy="341.02228"
+       fx="606.22894"
+       cy="341.02228"
+       cx="606.22894"
+       gradientTransform="matrix(1,0,0,0.96030175,0,13.619535)"
+       gradientUnits="userSpaceOnUse"
+       id="radialGradient3891"
+       xlink:href="#linearGradient3756-8-6"
+       inkscape:collect="always" />
+    <linearGradient
+       y2="359.84399"
+       x2="606.90448"
+       y1="327.29529"
+       x1="605.55334"
+       gradientUnits="userSpaceOnUse"
+       id="linearGradient3893"
+       xlink:href="#linearGradient3856-3"
+       inkscape:collect="always" />
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient3933"
+       id="linearGradient3939"
+       x1="604.79565"
+       y1="634.52844"
+       x2="604.79565"
+       y2="564.15167"
+       gradientUnits="userSpaceOnUse" />
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient4194"
+       id="linearGradient4192"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="translate(-2069.8108,1237.4708)"
+       x1="2393.3313"
+       y1="-1091.6801"
+       x2="2903.575"
+       y2="-1083.6801" />
+    <linearGradient
+       id="linearGradient4194">
+      <stop
+         id="stop4196"
+         offset="0"
+         style="stop-color:#ff8f23;stop-opacity:1;" />
+      <stop
+         id="stop4198"
+         offset="1"
+         style="stop-color:#e23500;stop-opacity:1;" />
+    </linearGradient>
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient4194"
+       id="linearGradient3458"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="translate(250.96655,-4.2129687e-5)"
+       x1="2393.3313"
+       y1="-1091.6801"
+       x2="2903.575"
+       y2="-1083.6801" />
+    <linearGradient
+       id="linearGradient3460">
+      <stop
+         id="stop3462"
+         offset="0"
+         style="stop-color:#ff8f23;stop-opacity:1;" />
+      <stop
+         id="stop3464"
+         offset="1"
+         style="stop-color:#e23500;stop-opacity:1;" />
+    </linearGradient>
+    <radialGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient5500"
+       id="radialGradient4184"
+       cx="2679.9243"
+       cy="-1029.7256"
+       fx="2679.9243"
+       fy="-1029.7256"
+       r="142.95937"
+       gradientTransform="matrix(-1.4291208,0,0,-0.33610947,6463.8598,-1451.646)"
+       gradientUnits="userSpaceOnUse" />
+    <linearGradient
+       id="linearGradient5500">
+      <stop
+         style="stop-color:#7a7a7a;stop-opacity:1;"
+         offset="0"
+         id="stop5502" />
+      <stop
+         style="stop-color:#252525;stop-opacity:1;"
+         offset="1"
+         id="stop5504" />
+    </linearGradient>
+    <radialGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient5500"
+       id="radialGradient3470"
+       cx="2679.9243"
+       cy="-1029.7256"
+       fx="2679.9243"
+       fy="-1029.7256"
+       r="142.95937"
+       gradientTransform="matrix(-1.4291208,0,0,-0.33610947,6463.8598,-1451.646)"
+       gradientUnits="userSpaceOnUse" />
+    <linearGradient
+       id="linearGradient3472">
+      <stop
+         style="stop-color:#7a7a7a;stop-opacity:1;"
+         offset="0"
+         id="stop3474" />
+      <stop
+         style="stop-color:#252525;stop-opacity:1;"
+         offset="1"
+         id="stop3476" />
+    </linearGradient>
+    <radialGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient5500"
+       id="radialGradient3478"
+       cx="2679.9243"
+       cy="-1029.7256"
+       fx="2679.9243"
+       fy="-1029.7256"
+       r="142.95937"
+       gradientTransform="matrix(-1.4291208,0,0,-0.33610947,6463.8598,-1451.646)"
+       gradientUnits="userSpaceOnUse" />
+    <linearGradient
+       id="linearGradient3480">
+      <stop
+         style="stop-color:#7a7a7a;stop-opacity:1;"
+         offset="0"
+         id="stop3482" />
+      <stop
+         style="stop-color:#252525;stop-opacity:1;"
+         offset="1"
+         id="stop3484" />
+    </linearGradient>
+    <radialGradient
+       r="142.95937"
+       fy="-1029.7256"
+       fx="2679.9243"
+       cy="-1029.7256"
+       cx="2679.9243"
+       gradientTransform="matrix(-1.4291208,0,0,-0.33610947,4143.0824,-214.17512)"
+       gradientUnits="userSpaceOnUse"
+       id="radialGradient3491"
+       xlink:href="#linearGradient5500"
+       inkscape:collect="always" />
+  </defs>
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="0.7"
+     inkscape:cx="243.58388"
+     inkscape:cy="476.46363"
+     inkscape:document-units="px"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     inkscape:window-width="1600"
+     inkscape:window-height="1151"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1" />
+  <metadata
+     id="metadata7">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <rect
+       style="opacity:0.98999999000000005;fill:#000000;fill-opacity:1;stroke:none;stroke-width:33.41299819999999698;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none"
+       id="rect5672"
+       width="491.42856"
+       height="178.57143"
+       x="18.571428"
+       y="752.36218"
+       ry="12.430389" />
+    <text
+       xml:space="preserve"
+       style="font-size:32px;font-style:normal;font-weight:bold;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#ffe680;fill-opacity:1;stroke:none;font-family:Ubuntu;-inkscape-font-specification:Ubuntu Bold;font-stretch:normal;font-variant:normal;text-anchor:start;text-align:start;writing-mode:lr"
+       x="104.28571"
+       y="225.21933"
+       id="text2985"
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/logo.png"
+       inkscape:export-xdpi="51.473698"
+       inkscape:export-ydpi="51.473698"><tspan
+         sodipodi:role="line"
+         id="tspan2987"
+         x="104.28571"
+         y="225.21933"
+         style="-inkscape-font-specification:Ubuntu Bold;font-family:Ubuntu;font-weight:bold;font-style:normal;font-stretch:normal;font-variant:normal;fill:#ffe680;font-size:32px;text-anchor:start;text-align:start;writing-mode:lr;line-height:125%"><tspan
+           style="fill:#ffd42a;fill-opacity:1"
+           id="tspan3759">mouse</tspan><tspan
+           style="fill:#f5f5f5;fill-opacity:1"
+           id="tspan3763">phenotype</tspan></tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:32px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#808080;fill-opacity:1;stroke:none;font-family:Ubuntu;-inkscape-font-specification:Ubuntu Bold"
+       x="96.974739"
+       y="383.24673"
+       id="text2985-1"
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/logo.png"
+       inkscape:export-xdpi="51.473698"
+       inkscape:export-ydpi="51.473698"><tspan
+         sodipodi:role="line"
+         id="tspan2987-1"
+         x="96.974739"
+         y="383.24673"
+         style="font-size:32px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr;text-anchor:start;fill:#808080;font-family:Ubuntu;-inkscape-font-specification:Ubuntu Bold;fill-opacity:1">mousephenotype</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:32px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#ed5000;fill-opacity:1;stroke:none;font-family:Ubuntu;-inkscape-font-specification:Ubuntu Bold;stroke-opacity:1"
+       x="58.40332"
+       y="448.96103"
+       id="text2985-1-2"
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/logo.png"
+       inkscape:export-xdpi="51.473698"
+       inkscape:export-ydpi="51.473698"><tspan
+         sodipodi:role="line"
+         id="tspan2987-1-6"
+         x="58.40332"
+         y="448.96103"
+         style="font-size:32px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr-tb;text-anchor:start;fill:#ed5000;font-family:Ubuntu;-inkscape-font-specification:Ubuntu Bold;stroke:none;stroke-opacity:1;fill-opacity:1"><tspan
+           style="fill:#ff6600;fill-opacity:1"
+           id="tspan5545">mouse</tspan><tspan
+           style="fill:#4d4d4d;fill-opacity:1"
+           id="tspan5541">phenotype</tspan></tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:32px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#ed5000;fill-opacity:1;stroke:none;font-family:Ubuntu;-inkscape-font-specification:Ubuntu Bold"
+       x="56.974751"
+       y="573.24677"
+       id="text2985-1-2-6"
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/logo.png"
+       inkscape:export-xdpi="51.473698"
+       inkscape:export-ydpi="51.473698"><tspan
+         sodipodi:role="line"
+         id="tspan2987-1-6-7"
+         x="56.974751"
+         y="573.24677"
+         style="font-size:32px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr-tb;text-anchor:start;fill:#ff6600;fill-opacity:1;stroke:none;font-family:Ubuntu;-inkscape-font-specification:Ubuntu Bold"><tspan
+           style="fill:#2b2b2b;fill-opacity:1"
+           id="tspan5574">mouse</tspan><tspan
+           style="fill:#0083dc;fill-opacity:1"
+           id="tspan5616">phenotype</tspan></tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:28px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#333333;fill-opacity:1;stroke:none;font-family:Ubuntu Condensed;-inkscape-font-specification:'Ubuntu Condensed, Bold'"
+       x="81.428566"
+       y="682.36218"
+       id="text5576"
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/logo.png"
+       inkscape:export-xdpi="51.473698"
+       inkscape:export-ydpi="51.473698"><tspan
+         sodipodi:role="line"
+         id="tspan5578"
+         x="81.428566"
+         y="682.36218"
+         style="font-size:26px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr;text-anchor:start;fill:#ff6600;font-family:Arial;-inkscape-font-specification:Arial Bold">The International Mouse Phenotyping Consortium</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:32px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#ff6600;fill-opacity:1;stroke:none;font-family:Ubuntu;-inkscape-font-specification:Ubuntu Bold"
+       x="66.974747"
+       y="498.96106"
+       id="text2985-1-0"
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/logo.png"
+       inkscape:export-xdpi="51.473698"
+       inkscape:export-ydpi="51.473698"><tspan
+         sodipodi:role="line"
+         id="tspan2987-1-1"
+         x="66.974747"
+         y="498.96106"
+         style="font-size:32px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr-tb;text-anchor:start;fill:#ff6600;fill-opacity:1;font-family:Ubuntu;-inkscape-font-specification:Ubuntu Bold">mousephenotype</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:30px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#ffffff;fill-opacity:1;stroke:none;font-family:Ubuntu Condensed;-inkscape-font-specification:'Ubuntu Condensed,'"
+       x="102.68904"
+       y="821.81818"
+       id="text2985-1-0-7"
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/logo.png"
+       inkscape:export-xdpi="51.473698"
+       inkscape:export-ydpi="51.473698"><tspan
+         sodipodi:role="line"
+         id="tspan5670"
+         x="102.68904"
+         y="821.81818"
+         style="font-size:33px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr-tb;text-anchor:start;font-family:Ubuntu Condensed;-inkscape-font-specification:'Ubuntu Condensed,'"><tspan
+   style="font-size:33px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr-tb;text-anchor:start;fill:#969696;fill-opacity:1;font-family:Ubuntu Condensed;-inkscape-font-specification:'Ubuntu Condensed,'"
+   id="tspan5678">IMPC</tspan> mousephenotype</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:30px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#ffffff;fill-opacity:1;stroke:none;font-family:Ubuntu Condensed;-inkscape-font-specification:'Ubuntu Condensed,'"
+       x="116.30782"
+       y="100.6356"
+       id="text2985-1-0-7-4"
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/logo.png"
+       inkscape:export-xdpi="51.473698"
+       inkscape:export-ydpi="51.473698"><tspan
+         sodipodi:role="line"
+         id="tspan5670-3"
+         x="116.30782"
+         y="100.6356"
+         style="font-size:33px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr;text-anchor:start;font-family:Ubuntu Condensed;-inkscape-font-specification:'Ubuntu Condensed, Bold'"><tspan
+           style="font-size:33px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr;text-anchor:start;fill:#969696;fill-opacity:1;font-family:Ubuntu Condensed;-inkscape-font-specification:'Ubuntu Condensed, Bold'"
+           id="tspan5678-2">IMPC</tspan><tspan
+           style="fill:#2a7fff;-inkscape-font-specification:'Ubuntu Condensed, Bold';font-family:Ubuntu Condensed;font-weight:bold;font-style:normal;font-stretch:normal;font-variant:normal;font-size:33px;text-anchor:start;text-align:start;writing-mode:lr;line-height:125%"
+           id="tspan3036"> mousephenotype</tspan></tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:30px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:1.34000003px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#ffffff;fill-opacity:1;stroke:none;font-family:Ubuntu Condensed;-inkscape-font-specification:'Ubuntu Condensed,'"
+       x="65.736465"
+       y="1000.6356"
+       id="text2985-1-0-7-9"
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/logo.png"
+       inkscape:export-xdpi="51.473698"
+       inkscape:export-ydpi="51.473698"><tspan
+         sodipodi:role="line"
+         id="tspan5670-0"
+         x="65.736465"
+         y="1000.6356"
+         style="font-size:33px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:-1.17999996px;writing-mode:lr;text-anchor:start;font-family:Ubuntu;-inkscape-font-specification:Ubuntu Bold"><tspan
+           style="font-size:33px;font-style:normal;font-variant:normal;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:-1.17999996px;writing-mode:lr;text-anchor:start;fill:#000000;fill-opacity:1;font-family:Ubuntu;-inkscape-font-specification:Ubuntu Bold;font-weight:bold"
+           id="tspan5678-1">IMPC</tspan><tspan
+           style="font-size:33px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:-1.17999996px;writing-mode:lr;text-anchor:start;fill:#ff6600;font-family:Ubuntu;-inkscape-font-specification:Ubuntu Bold"
+           id="tspan3109"> mousephenotype</tspan></tspan></text>
+    <path
+       sodipodi:type="arc"
+       style="opacity:0.98999999000000005;fill:#ffffff;fill-opacity:1;stroke:none"
+       id="path3117"
+       sodipodi:cx="647.32141"
+       sodipodi:cy="807.89789"
+       sodipodi:rx="5.1785712"
+       sodipodi:ry="5.3571429"
+       d="m 652.49998,807.89789 a 5.1785712,5.3571429 0 1 1 -10.35714,0 5.1785712,5.3571429 0 1 1 10.35714,0 z"
+       transform="matrix(0.96551728,0,0,0.93333332,22.142832,54.217012)"
+       inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/dot.png"
+       inkscape:export-xdpi="45"
+       inkscape:export-ydpi="45" />
+    <text
+       xml:space="preserve"
+       style="font-size:40px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Sans"
+       x="91.428574"
+       y="292.36218"
+       id="text3119"
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/logo.png"
+       inkscape:export-xdpi="51.473698"
+       inkscape:export-ydpi="51.473698"><tspan
+         sodipodi:role="line"
+         id="tspan3121"
+         x="91.428574"
+         y="292.36218"
+         style="font-size:32px;font-style:normal;font-variant:normal;font-weight:300;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr;text-anchor:start;fill:#ff6600;font-family:Ubuntu;-inkscape-font-specification:Ubuntu Light">IMPC<tspan
+   style="font-size:32px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr-tb;text-anchor:start;fill:#333333;font-family:Ubuntu;-inkscape-font-specification:Ubuntu Bold"
+   id="tspan3135"> mousephenotype</tspan></tspan></text>
+    <path
+       sodipodi:type="arc"
+       style="opacity:0.98999999000000005;fill:#b3b3b3;fill-opacity:1;stroke:none"
+       id="path3117-8"
+       sodipodi:cx="647.32141"
+       sodipodi:cy="807.89789"
+       sodipodi:rx="5.1785712"
+       sodipodi:ry="5.3571429"
+       d="m 652.49998,807.89789 a 5.1785712,5.3571429 0 1 1 -10.35714,0 5.1785712,5.3571429 0 1 1 10.35714,0 z"
+       transform="matrix(0.96551728,0,0,0.93333332,54.999996,76.895593)"
+       inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/gray_dot.png"
+       inkscape:export-xdpi="45"
+       inkscape:export-ydpi="45" />
+    <text
+       xml:space="preserve"
+       style="font-size:40px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Sans"
+       x="78.636894"
+       y="333.24673"
+       id="text3119-9"
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/logo.png"
+       inkscape:export-xdpi="58.532753"
+       inkscape:export-ydpi="58.532753"><tspan
+         sodipodi:role="line"
+         id="tspan3121-6"
+         x="78.636894"
+         y="333.24673"
+         style="font-size:32px;font-style:normal;font-variant:normal;font-weight:300;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr-tb;text-anchor:start;fill:#ff6600;font-family:Ubuntu;-inkscape-font-specification:Ubuntu Light"><tspan
+           style="fill:#999999"
+           id="tspan3053">IMPC</tspan><tspan
+           style="font-size:32px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr-tb;text-anchor:start;fill:#333333;font-family:Ubuntu;-inkscape-font-specification:Ubuntu Bold"
+           id="tspan3135-3"><tspan
+             style="fill:#000000"
+             id="tspan3057"> pheno</tspan><tspan
+             style="fill:#ff5700;fill-opacity:1"
+             id="tspan3055">view</tspan></tspan></tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:40px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Sans"
+       x="440.64029"
+       y="490.38962"
+       id="text3119-9-7"
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/logo.png"
+       inkscape:export-xdpi="64.491241"
+       inkscape:export-ydpi="64.491241"><tspan
+         sodipodi:role="line"
+         id="tspan3121-6-6"
+         x="440.64029"
+         y="490.38962"
+         style="font-size:32px;font-style:normal;font-variant:normal;font-weight:300;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr-tb;text-anchor:start;fill:#ff6600;font-family:Ubuntu;-inkscape-font-specification:Ubuntu Light"><tspan
+           style="font-size:32px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr-tb;text-anchor:start;fill:#333333;font-family:Ubuntu;-inkscape-font-specification:Ubuntu Bold"
+           id="tspan3135-3-5"><tspan
+             style="fill:#000000"
+             id="tspan3057-9">pheno</tspan><tspan
+             style="fill:#ff5700;fill-opacity:1"
+             id="tspan3055-1">view</tspan></tspan></tspan></text>
+    <path
+       style="opacity:0.98999999;fill:url(#linearGradient3785);fill-opacity:1;stroke:#00a320;stroke-width:1.70000005;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none"
+       d="m 516.74908,172.60728 76.77159,-72.730979 86.87312,1e-5 -163.64471,153.543179 z"
+       id="rect2985"
+       inkscape:connector-curvature="0"
+       sodipodi:nodetypes="ccccc"
+       inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/beta.png"
+       inkscape:export-xdpi="37.802364"
+       inkscape:export-ydpi="37.802364" />
+    <text
+       xml:space="preserve"
+       style="font-size:40px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#ffffff;fill-opacity:1;stroke:#007d19;stroke-width:1;stroke-opacity:1;font-family:Sans"
+       x="269.43463"
+       y="520.47266"
+       id="text3764"
+       sodipodi:linespacing="125%"
+       transform="matrix(0.7258571,-0.68784552,0.68784552,0.7258571,0,0)"
+       inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/beta.png"
+       inkscape:export-xdpi="37.802364"
+       inkscape:export-ydpi="37.802364"><tspan
+         sodipodi:role="line"
+         id="tspan3766"
+         x="269.43463"
+         y="520.47266"
+         style="font-size:40px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr-tb;text-anchor:start;fill:#ffffff;fill-opacity:1;stroke:#007d19;stroke-width:1;stroke-opacity:1;font-family:Ubuntu;-inkscape-font-specification:Ubuntu Bold">beta</tspan></text>
+    <path
+       sodipodi:type="arc"
+       style="fill:url(#radialGradient3837);fill-opacity:1;stroke:url(#linearGradient3862);stroke-width:1.52903963;stroke-miterlimit:4;stroke-dasharray:none"
+       id="path3044"
+       sodipodi:cx="605.71429"
+       sodipodi:cy="343.07648"
+       sodipodi:rx="17.142857"
+       sodipodi:ry="16.428572"
+       d="m 622.85715,343.07648 a 17.142857,16.428572 0 1 1 -34.28571,0 17.142857,16.428572 0 1 1 34.28571,0 z"
+       transform="matrix(2.7760599,0,0,2.8967581,-1077.2134,-668.59024)"
+       inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/annotation_on.png"
+       inkscape:export-xdpi="12.642154"
+       inkscape:export-ydpi="12.642154" />
+    <path
+       sodipodi:type="arc"
+       style="fill:url(#radialGradient3891);fill-opacity:1;stroke:url(#linearGradient3893);stroke-width:1.52903962;stroke-miterlimit:4;stroke-dasharray:none"
+       id="path3044-5"
+       sodipodi:cx="605.71429"
+       sodipodi:cy="343.07648"
+       sodipodi:rx="17.142857"
+       sodipodi:ry="16.428572"
+       d="m 622.85715,343.07648 a 17.142857,16.428572 0 1 1 -34.28571,0 17.142857,16.428572 0 1 1 34.28571,0 z"
+       transform="matrix(2.7760599,0,0,2.8967581,-1007.2134,-561.44738)"
+       inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/annotation_off.png"
+       inkscape:export-xdpi="12.642154"
+       inkscape:export-ydpi="12.642154" />
+    <path
+       style="fill:url(#linearGradient3939);fill-opacity:1;stroke:#a5a5a5;stroke-width:3.336;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none"
+       d="m 561.14285,563.79077 76.00001,0 28.57143,34.28571 -28.57143,34.28572 -76.00001,0 c -3.80952,-22.85714 -3.80953,-45.71429 0,-68.57143 z"
+       id="rect3922"
+       inkscape:connector-curvature="0"
+       sodipodi:nodetypes="cccccc"
+       inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/clear_search.png"
+       inkscape:export-xdpi="23.197584"
+       inkscape:export-ydpi="23.197584" />
+    <path
+       style="fill:#a2a2a2;fill-opacity:1;stroke:none;stroke-width:1.14878249000000010;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none"
+       d="m 589.05669,580.28061 -6.17471,6.19864 11.3921,11.39209 -11.3921,11.36816 6.17471,6.19864 11.39209,-11.39209 11.05703,11.05703 6.17471,-6.19864 -11.05704,-11.0331 11.05704,-11.05703 -6.17471,-6.19864 -11.05703,11.05703 -11.39209,-11.39209 z"
+       id="rect3941"
+       inkscape:connector-curvature="0"
+       inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/clear_search.png"
+       inkscape:export-xdpi="24.797417"
+       inkscape:export-ydpi="24.797417" />
+    <text
+       xml:space="preserve"
+       style="font-size:92px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:url(#radialGradient3491);fill-opacity:1;stroke:none;font-family:Sans"
+       x="19.553894"
+       y="183.34076"
+       id="text4843"
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/logo.png"
+       inkscape:export-xdpi="20.657209"
+       inkscape:export-ydpi="20.657209"><tspan
+         sodipodi:role="line"
+         x="19.553894"
+         y="183.34076"
+         id="tspan4847"
+         style="font-size:100px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr-tb;text-anchor:start;fill:url(#radialGradient3491);fill-opacity:1;font-family:Ubuntu;-inkscape-font-specification:Ubuntu Bold">pheno<tspan
+   style="font-size:100px;fill:url(#radialGradient3491);fill-opacity:1"
+   id="tspan3933" /></tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:92px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:url(#linearGradient4192);fill-opacity:1;stroke:none;font-family:Sans"
+       x="316.52045"
+       y="183.34076"
+       id="text4843-7"
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/logo.png"
+       inkscape:export-xdpi="20.657209"
+       inkscape:export-ydpi="20.657209"><tspan
+         sodipodi:role="line"
+         x="316.52045"
+         y="183.34076"
+         id="tspan4847-1"
+         style="font-size:100px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr-tb;text-anchor:start;fill:url(#linearGradient4192);fill-opacity:1;font-family:Ubuntu;-inkscape-font-specification:Ubuntu Bold">view</tspan></text>
+  </g>
+</svg>

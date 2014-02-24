@@ -1,0 +1,166 @@
+************************************
+P H E N O V I E W
+Release Notes
+Last updated - 24 Feb 2014
+************************************
+
+Release 0.9.9
+ * Updated style to match IMPC theme.
+ * Hovering over a Centre displays list of procedures with data.
+ * Hovering over a Procedure displays a subset of the information (purpose and experiment design) from IMPReSS.
+ * Clicking on a Gene row displays a list of procedures with data.
+ * Clicking on one of the displayed procedure icons displays list of parameters with data.
+ * Display version number for procedures.
+ * Feature: Data point radius scales with respect to the zoom level (Sanger).
+ * Feature: Display swarm plot labels at the bottom (Holger). Helps with colour blindness.
+ * Fixed bug: Legends on categorical plots are overlapping with segmented columns (Michelle Stewart).
+ * Fixed assignment of colours for categorical data.
+ * Performance improvement when retrieving procedures and parameters.
+
+Release 0.9.7
+ * Feature request IMPC-279 - Add Google Analytics for Phenoview using mousephenotype.org property.
+ * Bug fix: Check for empty baseline measurements while plotting categorical data.
+ * Bug fix: IMPC-278 - Baseline measurements in CSV download not identified correctly.
+ * Added changelog file in project.
+
+Release 0.9.6
+ * Removed Facebook and Twitter facilities. Terry's suggestion from 10 December 2013 Dev call.
+ * Fix undefined column in downloaded CSV file: Added check for undefined x-axis.
+ * Fixed switching zygosity bug: Added check if there are data points for zygosity.
+ * Data downloader uses format suggested by EBI, based on the Dev Call on 10 December 2013.
+   - Removed measurement id.
+   - Changed Gene Id to Genotype.
+   - Changed Stran Id to MG strain id.
+   - Changed Animal Id to Animal name.
+ * Fixed segment chart bug.
+ * Improvement to style for live release.
+ * Use JEE Web 7.
+
+Release 0.9.5
+ * Improved placement of segment column label for categorical data.
+ * Added facility to parse gene specification from URL 'gid' query parameter.
+ * Fixed bug to check if parameters were specified explicitly, in addition to procedure type or ontology term.
+
+Release 0.9.4
+ * Update documentation to include possibility to supply parameters by: parameter key, procedure_type or ontology term.
+ * When parameter key, procedure_type and ontology term are expanded to parameters set, sort them by parameter key.
+ * Added facility to specify parameters by using parameter key, procedure type or ontology term.
+ * Added web service to translate procedure types and MP terms to corresponding parameter ids.
+ * Added details on sharing and downloading in the documentation.
+
+Release 0.9.3
+ * Fixed spelling errors.
+ * Fixed search bug. Reset search fields text when switching context.
+ * First draft of the documentation.
+
+Release 0.9.2
+ * Fixed bug concerning fertility and viability 'outcome'.
+
+Release 0.9.1
+ * When fertility and viability have outcome without the data fields, display a '?' character.
+ * Added facility to display tabular data for fertility.
+ * Added facility to download viability data.
+ * Added facility to display pie-chart and tabular data for viability.
+ * Added web services for retrieving viability data.
+ * Added web services for retrieving fertility data.
+ * Baseline comparison is now possible.
+ * Click to highlight remembers a specimen selection, so that visualisations are automatically highlighted when refreshed.
+ * Click to highlight a data point and get details on the specimen.
+ * Make all of the searches case-insensitive.
+
+Release 0.8.6
+ * Fixed bug on missing events in event handlers.
+
+Release 0.8.5
+ * Fixed touch event bugs.
+
+Release 0.8.4
+ * Improved handling of controls panel on touch devices.
+ * Increased forced data refresh time to 2 hours.
+ * Added support for touch devices.
+
+Release 0.8.3
+ * Performance improvement with selective refreshing of visible visualisation.
+ * Added facility to choose between standard deviation and standard error.
+ * Fix toolbar for small screens.
+
+Release 0.8.2
+ * Handle negative genotype identifiers.
+ * Handle invalid parameter key list.
+ * Handle invalid gene identifier list.
+ * Handle missing gene and parameter lists.
+
+Release 0.8.1
+ * Unify main toolbar.
+
+Release 0.8
+ * Updated design document.
+ * Significant improvement to web app load time by using selective lazy-loading of data.
+
+Release 0.7
+ * Added Embryo LacZ icon.
+ * Fixed spelling mistake.
+ * Reduce icon height in toolbar.
+ * Preliminary support for touch devices.
+ * Fixed centre and procedure scrolling.
+ * Fixed header alignment for small screens.
+ * Improve annotation column addition.
+
+Release 0.6
+ * Added facility to display calorimetry data. Time relative to light out is calculated at the server from the increment date-time.
+ * Added design documentation for REST web services.
+ * Cleanup source tree for public release on GitHub.
+ * Fixed bug with MySQL database replication by directing specific database instance.
+ * Handle Sed in-place replacement for Mac OSX.
+ * Make phenoview public: don't require logging in.
+
+Release 0.5
+ * Default to index.jsp.
+ * Use version 3.0 of web.xml schema.
+
+Release 0.4
+ * Add deployment target for display on Tomcat.
+ * Added notification for users manual.
+ * Added deployment info.
+
+Release 0.3
+ * Fixed visualisation toolbar width.
+
+Release 0.2
+ * Show both genders by default.
+ * More meaningful column headers in data download.
+ * Use reasonable scaling factor for visualisation scaling.
+ * Improvements to annotation display.
+ * Improvements to default control setting.
+ * Fixed insecure content warning.
+ * Style improvements.
+ * Check if Ajax returned valid data.
+ * Added 'show all' to display het, hom and hem.
+ * Fixed measurements retrieval bug.
+ * Improved loading progress notification.
+ * Fixed sorting of gene list.
+ * Hide information box explicitly when scrolling or switching to configure mode.
+ * Fixed initialisation and display of graph based on zygosity.
+ * Initialise zygosity from URL control settings.
+ * Improve rendering by only focusing on visible visualisations.
+ * Improved Beeswarm performance (needs more work).
+ * Check for data and only refresh if zygosity changed.
+ * Added statistical calculations for zygosity data-sets.
+ * Added control buttons to select zygosity.
+ * Fixed initialisation of gender selector.
+ * Use radio button for gender selection.
+ * Display web app loading progress;
+ * Improvements to logo and icons.
+ * Improved scaling of x-axis.
+ * Display QC status.
+ * Plot overall statistics only when polylines are visible.
+ * Use rectangles for wildtype.
+ * Fixed data point highlight for categorical plot.
+ * Added facility to switch between Beeswarm and scatter plot.
+ * Don't show effect size and standard error if categorical.
+ * Cache categorical data calculations and statistics.
+ * Added facility to download raw data as CSV file.
+ * Added social networking features: Facebook and Twitter.
+ * Phenoview is the name.
+
+Please note, pre-release logs have been redacted.

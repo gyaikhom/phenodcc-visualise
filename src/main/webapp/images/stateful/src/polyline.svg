@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="538"
+   height="600"
+   viewBox="0 0 538 600"
+   id="svg3043"
+   version="1.1"
+   inkscape:version="0.48.3.1 r9886"
+   sodipodi:docname="show_points.svg"
+   inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/female.png"
+   inkscape:export-xdpi="4.5"
+   inkscape:export-ydpi="4.5">
+  <metadata
+     id="metadata3061">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title>Man and woman (heterosexual) icon</dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <defs
+     id="defs3059" />
+  <sodipodi:namedview
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:window-width="1600"
+     inkscape:window-height="1151"
+     id="namedview3057"
+     showgrid="false"
+     inkscape:zoom="1.6166667"
+     inkscape:cx="266.65473"
+     inkscape:cy="300"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg3043" />
+  <title
+     id="title3045">Man and woman (heterosexual) icon</title>
+  <path
+     style="fill:none;stroke:#000000;stroke-width:29.29999924;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none"
+     d="M 32.65,173.81444 132.54691,68.659812 226.49021,174.433 335.89743,141.6495 414.37681,228.24743 512.65,202.88661"
+     id="path3144"
+     inkscape:connector-curvature="0"
+     sodipodi:nodetypes="cccccc" />
+  <path
+     style="opacity:0.98999999;fill:none;stroke:#000000;stroke-width:29.29999924;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none"
+     d="m 32.65,367.71134 101.75258,-142.88659 90.85052,124.32989 104.45876,-36.49484 87.13918,75.46391 95.79896,8.6598"
+     id="path3144-3"
+     inkscape:connector-curvature="0"
+     sodipodi:nodetypes="cccccc" />
+</svg>
