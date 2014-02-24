@@ -1,6 +1,6 @@
 # Design of Phenoview
 
-The _Phenoview_ code base for is divided into two main parts:
+The _Phenoview_ code base is divided into two main parts:
 
 * **Server-side**
   These are RESTful web services implemented in Java. Each of these
@@ -122,7 +122,7 @@ Unless otherwise specified, all identifiers are primary keys in corresponding ta
 * **path param**:
     * `centre_id` - Centre identifier in PhenoDCC database.
 * **description**: Returns list of procedures with data for specified centre.
-* **examples**: `https://www.mousephenotype.org/phenoview/rest/available/centre/4`
+* **example**: `https://www.mousephenotype.org/phenoview/rest/available/centre/4`
 * **returns**: JSON array of procedure identifiers.
 
         {
@@ -145,7 +145,7 @@ Unless otherwise specified, all identifiers are primary keys in corresponding ta
     * `gid` - Genotype identifier in PhenoDCC database.
     * `sid` - Strain identifier in PhenoDCC database.
 * **description**: Returns list of parameters for specified procedure, genotype and strain.
-* **examples**: `https://www.mousephenotype.org/phenoview/rest/available/81?cid=6&gid=0&sid=35`
+* **example**: `https://www.mousephenotype.org/phenoview/rest/available/81?cid=6&gid=0&sid=35`
 * **returns**: JSON array of parameter identifiers.
 
         {
@@ -301,7 +301,7 @@ Unless otherwise specified, all identifiers are primary keys in corresponding ta
 * **path param**:
     * `parameterKey` - Parameter key in IMPReSS.
 * **description**: Return details for supplied parameter.
-* **examples**: JSON with following structures (depends on parameter type, see IMPReSS).
+* **example**: JSON with following structures (depends on parameter type, see IMPReSS).
 
     * `https://www.mousephenotype.org/phenoview/rest/parameter/IMPC_CSD_005_001`
 
@@ -343,7 +343,7 @@ Unless otherwise specified, all identifiers are primary keys in corresponding ta
 * **request**: `GET`
 * **path**: `rest/parameter`
 * **description**: Returns all of the available parameters.
-* **examples**: `https://www.mousephenotype.org/phenoview/rest/parameter`
+* **example**: `https://www.mousephenotype.org/phenoview/rest/parameter`
 * **returns**: JSON with following structure (depends on parameter type, see IMPReSS).
 
         {
@@ -374,7 +374,7 @@ Unless otherwise specified, all identifiers are primary keys in corresponding ta
 * **Query param**:
     * `q` - Comma separated list of parameter keys from IMPReSS.
 * **description**: Returns details for all of the parameters that are in the supplied list of parameter keys.
-* **examples**: `https://www.mousephenotype.org/phenoview/rest/parameter?q=IMPC_CSD_024_001,IMPC_CSD_022_001`
+* **example**: `https://www.mousephenotype.org/phenoview/rest/parameter?q=IMPC_CSD_024_001,IMPC_CSD_022_001`
 * **returns**: JSON with structure as described in previous section.
 
 ### Procedures
@@ -383,7 +383,7 @@ Unless otherwise specified, all identifiers are primary keys in corresponding ta
 * **request**: `GET`
 * **path**: `rest/procedure`
 * **description**: Returns all of the available procedures.
-* **examples**: `https://www.mousephenotype.org/phenoview/rest/procedure`
+* **example**: `https://www.mousephenotype.org/phenoview/rest/procedure`
 * **returns**: JSON with following structure.
 
         {
@@ -409,6 +409,6 @@ Unless otherwise specified, all identifiers are primary keys in corresponding ta
 * **path param**:
     * `procedure_id` - Procedure Id in IMPReSS.
 * **description**: Returns details of specified procedure.
-* **examples**: `https://www.mousephenotype.org/phenoview/rest/procedure/details/81`
+* **example**: `https://www.mousephenotype.org/phenoview/rest/procedure/details/81`
 * **returns**: JSON array of strings, where each string is a section taken from IMPReSS.
 
