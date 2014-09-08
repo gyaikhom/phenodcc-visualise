@@ -1,8 +1,67 @@
 ************************************
 P H E N O V I E W
 Release Notes
-Last updated - 24 Feb 2014
+Last updated - 8 September 2014
 ************************************
+
+Release 1.2.1
+ * Added bounded Beeswarm plot.
+
+Release 1.2
+ * Scale size of wildtype rectangles depending on visualisation size.
+ * Stop using Data URIs for raw measurement download.
+ * Added facility for handling of meta-data groups.
+
+Release 1.1
+ * Improvement to icons.
+ * Added zygosity icon.
+ * Fixed zygosity selection.
+ * Improved style and display of context.
+
+Release 1.0.9
+ * Fixed QC status of parameter.
+
+Release 1.0.8
+ * Group mutant categorical split.
+ * Improved style colour.
+ * Fixed QC status retrieval bug.
+ * Removed standard error until we know what the users want.
+ * Display statistics information when hovering over box and whisker plots.
+
+Release 1.0.7
+ * Fixed bud that incorrectly labels female segments as make segments.
+
+Release 1.0.6
+ * Fixed bug that prevents wildtype box plots when there are no mutant data.
+
+Release 1.0.5
+ * Use divs to display procedure icons, instead of using image icons.
+ * Added facility to handle image media.
+ * Fixed visualisation so that it does not fail when not enough data points.
+
+Release 1.0.4
+ * Enable display of derived parameters.
+
+Release 1.0.3
+ * Revert back to old named queries.
+
+Release 1.0.2
+ * Improved query by simplifying parameter details creation.
+ * Use MySQL driver provided by Tomcat, to prevent memory leaks.
+ * Faster retrieval of parameters.
+ * Improved loading of configuration interface by removing redundant Ajax calls.
+
+Release 1.0.1
+ * Added procedure logo.
+ * Added logo for Jax.
+
+Release 1.0.0
+ * Fixed table row and cell height issue on Firefox.
+ * Incorporate IMPReSS schema changes.
+ * Fixed basket icon confusion on navigator.
+ * Show procedure name on centre details.
+ * Allow ontology terms beginning with MA.
+ * Improved documentation.
 
 Release 0.9.9
  * Updated style to match IMPC theme.

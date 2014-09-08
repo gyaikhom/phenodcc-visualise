@@ -24,6 +24,7 @@ limitations under the License.
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <meta http-equiv="X-UA-Compatible" content="chrome=1" />
         <link href='https://fonts.googleapis.com/css?family=Source+Sans+Pro:200,400,600|Roboto:400,100,300,700' rel='stylesheet' type='text/css'>
+        <link rel="stylesheet" type="text/css" href="/imageviewer/css/imageviewer.0.5.css">
         <link rel="stylesheet" type="text/css" href="css/visualise.DCC_VISUALISE_VERSION.css">
     </head>
     <body>
@@ -48,6 +49,7 @@ limitations under the License.
             dcc.roles = JSON.parse(req.responseText);
         </script>
 
+        <script type="text/javascript" src="/imageviewer/js/app.0.5.js"></script>
         <script type="text/javascript" src="js/app.DCC_VISUALISE_VERSION.js"></script>
 
         <script>

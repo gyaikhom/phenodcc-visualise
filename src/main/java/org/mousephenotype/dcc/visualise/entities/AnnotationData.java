@@ -39,13 +39,14 @@ public class AnnotationData {
     private String yMP1;
     private MpDetails mp1;
     private MpDetails mp2;
+    private String metadataGroup;
 
     public AnnotationData(Long annotationId, Double pvalueDouble,
             String effectSize, String standardError,
             String maleMutantN, String maleBaslineN,
             String femaleMutantN, String femaleBaslineN,
             Integer zygosity, Boolean success,
-            String yMP, String yMP1) {
+            String yMP, String yMP1, String metadataGroup) {
         this.annotationId = annotationId;
         this.pvalueDouble = pvalueDouble;
         this.effectSize = effectSize;
@@ -58,6 +59,7 @@ public class AnnotationData {
         this.success = success;
         this.yMP = yMP;
         this.yMP1 = yMP1;
+        this.metadataGroup = metadataGroup;
     }
 
     @XmlElement(name = "i")
@@ -182,5 +184,14 @@ public class AnnotationData {
 
     public void setMp2(MpDetails mp2) {
         this.mp2 = mp2;
+    }
+
+    @XmlElement(name = "mg")
+    public String getMetadataGroup() {
+        return metadataGroup;
+    }
+
+    public void setMetadataGroup(String metadataGroup) {
+        this.metadataGroup = metadataGroup;
     }
 }

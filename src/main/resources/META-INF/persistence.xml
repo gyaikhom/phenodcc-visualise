@@ -29,6 +29,8 @@
         <class>org.mousephenotype.dcc.entities.overviews.MeasuredValues</class>
         <class>org.mousephenotype.dcc.entities.overviews.ProceduresPerformed</class>
         <class>org.mousephenotype.dcc.entities.overviews.ProcedureAnimalOverview</class>
+        <class>org.mousephenotype.dcc.entities.overviews.MetadataGroupToValues</class>
+        <class>org.mousephenotype.dcc.entities.overviews.ProcedureMetadataGroup</class>
 
         <!-- entities from phenodcc-entities-qc package -->
         <class>org.mousephenotype.dcc.entities.qc.IssueStatus</class>

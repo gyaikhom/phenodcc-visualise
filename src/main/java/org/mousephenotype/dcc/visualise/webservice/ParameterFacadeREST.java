@@ -64,6 +64,9 @@ public class ParameterFacadeREST extends AbstractFacade<Parameter> {
             case "CATEGORICAL":
                 code = 3;
                 break;
+            case "IMAGE":
+                code = 4;
+                break;
         }
         return code;
     }
@@ -115,7 +118,10 @@ public class ParameterFacadeREST extends AbstractFacade<Parameter> {
             pd.setStableid(p.getParameterKey());
             pd.setGraphType(convertGraphType(p.getGraphType()));
             pd.setDatatype(p.getValueType());
-            pd.setUnit(p.getUnit().getUnit());
+            if (p.getUnit() == null)
+                pd.setUnit("NULL");
+            else
+                pd.setUnit(p.getUnit().getUnit());
             pd.setOptions(getOptions(p));
             pd = this.fillIncrement(pd, p);
         }
@@ -147,7 +153,7 @@ public class ParameterFacadeREST extends AbstractFacade<Parameter> {
         for (Parameter q : result) {
             parameters.put(q.getParameterId(), fillParameterDetails(q));
             em.detach(q);
-        }
+    }
         result.clear();
         return parameters;
     }
@@ -163,7 +169,7 @@ public class ParameterFacadeREST extends AbstractFacade<Parameter> {
         for (Parameter q : result) {
             parameters.put(q.getParameterId(), fillParameterDetails(q));
             em.detach(q);
-        }
+    }
         result.clear();
         return parameters;
     }

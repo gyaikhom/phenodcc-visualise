@@ -34,6 +34,9 @@
     /* object that stores all of the visualisations */
     dcc.viz = {};
 
+    /* object that handles image visualisation */
+    dcc.imageViewer = null;
+
     var
         /* Phenoview operates in two modes:
          * 
@@ -49,6 +52,7 @@
         VISUALISE = 'Visualise',
         CONFIGURE = 'Configure',
         mode = VISUALISE, /* by default, choose visualisation mode */
+        fullConfigHasBeenLoaded = false, /* has the full config been loaded */
         dateConfigDataExpires = null, /* last time configuration data was loaded */
         MILLISECONDS_TO_EXPIRATION = 7200000, /* 2 hours */
 
@@ -88,6 +92,10 @@
     /* some constants that allows configuration of the tool */
     FLOAT_DISPLAY_PRECISION = 5,
         PARAMETER_KEY_FIELD = 'e',
+        PARAMETER_NAME_FIELD = 'n',
+        PROCEDURE_ID_FIELD = 'p',
+        PARAMETER_ID_FIELD = 'id',
+        STR_IMAGE = 'image',
         GENE_KEY = 'Id',
         /* property names for sorting genes list */
         SORT_BY_GENE_ALLELE = 'alleleName',
@@ -111,40 +119,48 @@
         navigatorItems = [
             {
                 'title': 'browse',
+                'id': 'browse-list',
                 'items': [
                     {
                         'label': 'Centre',
                         'id': 'centre',
+                        'hint': 'Browse genes by phenotyping centre',
                         'fn': showCentres
                     },
                     {
                         'label': 'Gene',
                         'id': 'gene',
+                        'hint': 'Browse or search all of the available genes',
                         'fn': showGenes
                     },
                     {
                         'label': 'Procedure',
                         'id': 'procedure',
+                        'hint': 'Browse parameters associated with a procedure',
                         'fn': showProcedures
                     },
                     {
                         'label': 'Parameter',
                         'id': 'parameter',
+                        'hint': 'Browse or search all of the parameters',
                         'fn': showParameters
                     }
                 ]
             },
             {
                 'title': 'comparison list',
+                'id': 'comparison-list',
                 'items': [
                     {
                         'label': 'Genes',
-                        'id': 'genes',
+                        'id': 'genes-basket',
+                        'hint': 'View and edit the current selection of genes',
                         'fn': showSelectedGenes
                     },
                     {
                         'label': 'Parameters',
-                        'id': 'parameters',
+                        'id': 'parameters-basket',
+                        'hint': 'View and edit the current selection of parameters',
                         'fn': showSelectedParameters
                     }
                 ]
@@ -241,6 +257,10 @@
         /* for every visualisation, we also display its QC status. The following
          * is a map of QC statuses */
         qcstatus = {},
+        /* for every visualisation, we provide the facility to display
+         * measurements that belongs to a specific meta-data group. We store in
+         * the following all of the unique meta-data group values. */
+        metadataGroups = {},
         isSupportedTouchDevice = navigator.userAgent.match(/Android|iPhone|iPad/i),
         /* touch events */
         TOUCH_START = 'touchstart',
@@ -251,10 +271,10 @@
         ZOOM_XLARGE = 1200,
         /* radius of data points in pixels at different zoom levels */
         WILDTYPE_DATAPOINT_RADIUS_SCALE = {
-            '600': 1,
-            '800': 1.5,
-            '1000': 1.9,
-            '1200': 2.2
+            '600': 1.25,
+            '800': 1.7,
+            '1000': 2.0,
+            '1200': 2.3
         },
     wildtypeDatapointRadius,
         MUTANT_DATAPOINT_RADIUS_SCALE = {
@@ -267,6 +287,9 @@
         /* radius of data points for statistics display */
         STAT_DATAPOINT_RADIUS = 3,
         highlightedSpecimen = -1, /* current highlighted specimen */
+        /* swarm data points are not allowed to go further than
+         * this bound relative to the principal swarm axis on both sides */
+        SWARM_BOUND = 70,
 
         /* colours used to display segmented bar charts and pie charts */
         segmentGradient = [
@@ -288,8 +311,9 @@
         detailsPanel = null,
         CENTRE_DETAILS = 1,
         PROCEDURES_AND_PARAMS_WITH_DATA = 2,
-        PROCEDURE_DETAILS = 3
-        ;
+        PROCEDURE_DETAILS = 3,
+        procedureColour = {} /* background colours for procedure icons */
+    ;
 
     dcc.pvalueThreshold = DEFAULT_PVALUE_THRESHOLD;
     dcc.visualisationControl = DEFAULT_VISUALISATION_SETTING;
@@ -561,11 +585,14 @@
      * Returns the current height of the DOM node.
      * 
      * @param {Object} node DOM node.
+     * @param {Integer} value New height.
      * @returns {Integer} Height of the DOM node.
      */
-    function height(node) {
+    function height(node, value) {
         if (typeof node === 'string')
             node = d3.select(node);
+        if (value !== undefined)
+            node.style('height', value + 'px');
         return node.node().getBoundingClientRect().height;
     }
 
@@ -573,11 +600,15 @@
      * Returns the current width of the DOM node.
      * 
      * @param {Object} node DOM node.
+     * @param {Integer} value New height.
      * @returns {Integer} width of the DOM node.
      */
-    function width(node) {
+    function width(node, value) {
         if (typeof node === 'string')
             node = d3.select(node);
+        if (value !== undefined) {
+            node.style('width', value + 'px');
+        }
         return node.node().getBoundingClientRect().width;
     }
 
@@ -611,10 +642,11 @@
      * Appends a table row.
      * 
      * @param {Object} table Parent table DOM node.
+     * @param {String} cls Class to use for the table row.
      * @returns {Object} Row node.
      */
-    function addRow(table) {
-        return table.append('tr');
+    function addRow(table, cls) {
+        return table.append('tr').attr('class', cls);
     }
 
     /**
@@ -1362,10 +1394,12 @@
      *      the x-value.
      * @param {String | Integer} yColumn The column property/index that gives
      *      the y-value.
-     * @param {String | Integer} measurementIdColumn The column property/index
-     *      that gives the unique measurement identifier.
+     * @param {String | Integer} metadataGroupColumn The column property/index
+     *      that gives the unique metadata group.
      * @param {String | Integer} animalIdColumn The column property/index
      *      that gives the unique animal identifier.
+     * @param {String | Integer} measurementIdColumn The column property/index
+     *      that gives the unique measurement identifier.
      * @param {String} target Statistics property to target.
      *
      * @return Object that contains statistical information. The structure of
@@ -1391,7 +1425,8 @@
      *     quartile: 1st and 2nd quartile points for the y-values
      */
     function calculateGroupedSeriesStatistics(dataset, keyColumn,
-        xColumn, yColumn, animalIdColumn, measurementIdColumn, target) {
+        xColumn, yColumn, metadataGroupColumn,
+        animalIdColumn, measurementIdColumn, target) {
         var s = {
             i: {}
         },
@@ -1408,7 +1443,7 @@
         size = dataset.length;
 
         /* first key value defines the first group */
-        currentGroupKey = dataset[0][keyColumn];
+        currentKey = currentGroupKey = dataset[0][keyColumn];
 
         xValueComparator = getAttributeValueComparator(xColumn);
         yValueComparator = getAttributeValueComparator(yColumn);
@@ -1418,6 +1453,7 @@
 
         /* start group with the first measured value */
         currentKeyGroup.push({
+            e: dataset[0][metadataGroupColumn],
             m: dataset[0][measurementIdColumn],
             a: dataset[0][animalIdColumn],
             x: dataset[0][xColumn],
@@ -1432,6 +1468,7 @@
             if (currentKey === currentGroupKey)
                 /* still the same group; value joins group */
                 currentKeyGroup.push({
+                    e: dataset[i][metadataGroupColumn],
                     m: dataset[i][measurementIdColumn],
                     a: dataset[i][animalIdColumn],
                     x: currentMeasuredValueX,
@@ -1456,6 +1493,7 @@
                 s.i[currentKey] = s.i[currentGroupKey] + 1;
                 currentGroupKey = currentKey;
                 currentKeyGroup = [{
+                        e: dataset[i][metadataGroupColumn],
                         m: dataset[i][measurementIdColumn],
                         a: dataset[i][animalIdColumn],
                         x: currentMeasuredValueX,
@@ -1492,10 +1530,12 @@
      *      the x-value.
      * @param {String | Integer} yColumn The column property/index that gives
      *      the y-value.
-     * @param {String | Integer} measurementIdColumn The column property/index
-     *      that gives the unique measurement identifier.
+     * @param {String | Integer} metadataGroupColumn The column property/index
+     *      that gives the unique metadata group.
      * @param {String | Integer} animalIdColumn The column property/index
      *      that gives the unique animal identifier.
+     * @param {String | Integer} measurementIdColumn The column property/index
+     *      that gives the unique measurement identifier.
      *
      * @return An object that contains various statistics and the data in
      *         the appropriate format required for plotting. The returned
@@ -1570,7 +1610,7 @@
      *
      */
     function prepareDatasetForPlotting(dataset, keyColumn, xColumn,
-        yColumn, animalIdColumn, measurementIdColumn) {
+        yColumn, metadataGroupColumn, animalIdColumn, measurementIdColumn) {
 
         if (!dataset || dataset.length < 1)
             return null;
@@ -1591,14 +1631,16 @@
         /* next, we find the column statistics of the data where the
          * measurements are grouped by their x-values */
         s.c = calculateGroupedSeriesStatistics(dataset, xColumn, xColumn,
-            yColumn, animalIdColumn, measurementIdColumn, 'c');
+            yColumn, metadataGroupColumn, animalIdColumn,
+            measurementIdColumn, 'c');
 
         /* next, we find the row statistics of the data where the
          * measurements are grouped by their animal identifiers. This also
          * prepares the required data-set for series plotting against
          * animal identifier. */
         s.r = calculateGroupedSeriesStatistics(dataset, keyColumn, xColumn,
-            yColumn, animalIdColumn, measurementIdColumn, 'r');
+            yColumn, metadataGroupColumn, animalIdColumn,
+            measurementIdColumn, 'r');
 
         /* finally, we derive the minimum and maximum x-values required for
          * generating the x-axis and scales. We use the column statistics
@@ -1624,13 +1666,15 @@
      *      the x-value.
      * @param {String | Integer} yColumn The column property/index that gives
      *      the y-value.
-     * @param {String | Integer} measurementIdColumn The column property/index
-     *      that gives the unique measurement identifier.
+     * @param {String | Integer} metadataGroupColumn The column property/index
+     *      that gives the unique metadata group.
      * @param {String | Integer} animalIdColumn The column property/index
      *      that gives the unique animal identifier.
+     * @param {String | Integer} measurementIdColumn The column property/index
+     *      that gives the unique measurement identifier.
      */
     function calculateStatistics(dataset, keyColumn, xColumn,
-        yColumn, animalIdColumn, measurementIdColumn) {
+        yColumn, metadataGroupColumn, animalIdColumn, measurementIdColumn) {
         if (!dataset)
             return null;
         var i, c, datapoint, maleData = [], femaleData = [];
@@ -1642,12 +1686,15 @@
                 femaleData.push(datapoint);
         }
         return {
-            'genderCombined': prepareDatasetForPlotting(dataset, keyColumn, xColumn,
-                yColumn, animalIdColumn, measurementIdColumn),
+            'genderCombined': prepareDatasetForPlotting(dataset, keyColumn,
+                xColumn, yColumn, metadataGroupColumn, animalIdColumn,
+                measurementIdColumn),
             'male': prepareDatasetForPlotting(maleData, keyColumn, xColumn,
-                yColumn, animalIdColumn, measurementIdColumn),
+                yColumn, metadataGroupColumn, animalIdColumn,
+                measurementIdColumn),
             'female': prepareDatasetForPlotting(femaleData, keyColumn, xColumn,
-                yColumn, animalIdColumn, measurementIdColumn)
+                yColumn, metadataGroupColumn, animalIdColumn,
+                measurementIdColumn)
         };
     }
 
@@ -1981,6 +2028,47 @@
     }
 
     /**
+     * Converts statistics for display on pop-up.
+     * @param {type} stat
+     * @returns {String}
+     */
+    function convertStatisticsToTable(stat) {
+        var m = '<table><tbody>';
+        m += '<tr><td>Mean:</td><td>' + toDisplayPrecision(stat.mean) + '</td></tr>';
+        m += '<tr><td>Median:</td><td>' + toDisplayPrecision(stat.median) + '</td></tr>';
+        if (stat.quartile) {
+            m += '<tr><td>1st quartile:</td><td>' + toDisplayPrecision(stat.quartile.q1) + '</td></tr>';
+            m += '<tr><td>3rd quartile:</td><td>' + toDisplayPrecision(stat.quartile.q3) + '</td></tr>';
+        }
+        m += '<tr><td>Minimum:</td><td>' + toDisplayPrecision(stat.min) + '</td></tr>';
+        m += '<tr><td>Maximum:</td><td>' + toDisplayPrecision(stat.max) + '</td></tr>';
+        if (stat.sd)
+            m += '<tr><td>Std. deviation:</td><td>' + toDisplayPrecision(stat.sd) + '</td></tr>';
+        if (stat.se)
+            m += '<tr><td>Std. error:</td><td>' + toDisplayPrecision(stat.se) + '</td></tr>';
+        return m + '</tbody></table>';
+    }
+
+    /**
+     * Returns a generic event handler that is activated when the mouse
+     * enters a statistics display.
+     * 
+     * @param {Object} viz The visualisation object.
+     * @param {String} message Message to display.
+     * @param {String} type TYpe of statistics (wildtype/mutant).
+     * 
+     * @returns {Function} An event handler.
+     */
+    function getStatisticsOnMouseEnterHandler(viz, message, type) {
+        return function() {
+            preventEventBubbling();
+            relocateInformationBox(getBoundedMouseCoordinate(viz));
+            informationBox.html(message)
+                .attr('class', 'infobar-stat-' + type);
+        };
+    }
+
+    /**
      * Draws a whisker plot using the supplied statistical information.
      *
      * <p>To avoid overlapping the data points (if they are visible)
@@ -2002,7 +2090,8 @@
      */
     function plotBoxAndWhisker(id, viz, statistics, groupKey,
         displacement, width, cls) {
-        var svg = viz.state.n.s, quartiles = statistics.quartile;
+        var svg = viz.state.n.s, quartiles = statistics.quartile, onMouseover;
+
         if (!quartiles)
             return svg;
 
@@ -2030,13 +2119,19 @@
             topRightY = yScale(statistics.max);
         }
 
+        onMouseover = getStatisticsOnMouseEnterHandler(viz,
+            convertStatisticsToTable(statistics), cls);
 
         /* remove existing whisker plot group with the identifier */
         svg.select('.whisker.' + cls + '.' + id).remove();
 
         /* append a new series plot group */
         whiskerRootDom = svg.append('g').attr('class',
-            'whisker ' + id + ' ' + cls);
+            'whisker ' + id + ' ' + cls)
+            .on('mouseenter', onMouseover)
+            .on('mouseleave', function() {
+                hideInformationBox();
+            });
 
         /* screen x-coordinate of population giving the statistics */
         groupKey = xScale(groupKey);
@@ -2578,13 +2673,14 @@
             return;
         }
         var tableHeight = 160, gapSize = 50, key, i = 0,
-            title = addDiv(parent).attr('class', 'viability-title'),
-            pies = parent.append('div', null, 'pie-charts')
-            .style('height', (height(parent) - tableHeight) + 'px'),
-            table = addDiv(parent, null, 'pie-table')
-            .style('height', tableHeight + 'px'),
-            containers = getPiesContainer(pies, 3, 'h', true, 0.7, gapSize),
-            temp, gapText = '=', outcome = data.outcome;
+            title = addDiv(parent, null, 'viability-title'),
+            pies = addDiv(parent, null, 'pie-charts'),
+            table = addDiv(parent, null, 'pie-table'),
+            containers, temp, gapText = '=', outcome = data.outcome;
+
+        height(pies, height(parent) - tableHeight);
+        height(table, tableHeight);
+        containers = getPiesContainer(pies, 3, 'h', true, 0.7, gapSize);
 
         title.html('<span>Viability procedure</span><span>Combines multiple parameters</span>');
         /* when using a parent-child pie charts grid, the first pie must be
@@ -2979,7 +3075,7 @@
 
             /* used during sorting */
             datum.pn = proceduresMap[datum.p].n;
-            
+
             /* prepare category colour index */
             if (datum.o && datum.o.length > 0) {
                 datum.o.sort(function(a, b) {
@@ -3007,6 +3103,8 @@
         for (i = 0, c = procedures.length; i < c; ++i) {
             t = procedures[i];
             proceduresMap[t.i] = t;
+            procedureColour[t.c] = c < iWantHue.length ? iWantHue[i] :
+                '#' + (Math.random() * 0xFFFFFF << 0).toString(16);
         }
     }
 
@@ -3208,7 +3306,7 @@
                     csv += getCsvRawData(geneId, dataset, includeXAxis);
             }
         }
-        return csv ? "data:text," + encodeURIComponent(csv) : null;
+        return csv;
     }
 
     /**
@@ -3218,15 +3316,22 @@
      * @param {Integer} sid Strain identifier.
      * @param {Integer} cid Centre identifier.
      * @param {String} qeid Parameter key.
+     * @param {String} bookmark The bookmark URL to the visualisation.
      */
-    function getRawDataDownloader(gid, sid, cid, qeid) {
+    function getRawDataDownloader(gid, sid, cid, qeid, bookmark) {
         return function() {
             preventEventBubbling();
             var geneId = prepareGeneStrainCentreId(gid, sid, cid),
-                dataUri = prepareRawDataForDownload(geneId, qeid);
-            if (dataUri)
-                window.location = dataUri;
-            else {
+                data = prepareRawDataForDownload(geneId, qeid);
+            if (data) {
+                var win = window.open('', '_blank');
+                win.document.body.innerHTML =
+                    'Raw measurements for <a target="_blank" href="' + bookmark
+                    + '">' + bookmark + '</a></br></br>'
+                    + '<textarea style="width:100%;height:90%">'
+                    + data + '</textarea>';
+                win.focus();
+            } else {
                 var win = window.open('',
                     'Raw data for centre id ' + cid +
                     ', genotype id ' + gid +
@@ -3270,15 +3375,7 @@
             .classed('on', dcc.visualisationControl & controlOptions.hem);
     }
 
-    /**
-     * Prepares the statistics information that will be displayed in the
-     * annotations panel.
-     * 
-     * @param {Object} data Annotation data to display.
-     * @param {Object} node NOM node that represents the annotation panel.
-     * @param {Object} graphType Visualisation graph type, to ignore irrelevant.
-     */
-    function prepareStatisticsInformation(data, node, graphType) {
+    function displayAnnotation(data, node, gid, sid, cid, qeid) {
         if (data.length < 1) {
             node.text('Server returned empty annotation data')
                 .classed('annotation-warning', true);
@@ -3287,26 +3384,28 @@
             node.classed('annotation-warning', false);
 
         var i = 0, c = data.length, datum, table, id, title,
-            header, mpterm, mpdesc, pvalue, effectsize, stdError,
+            header, mpterm, pvalue, effectsize, stdError,
             numMaleMutant, numFemaleMutant,
             numMaleWildtype, numFemaleWildtype,
+            geneId = prepareGeneStrainCentreId(gid, sid, cid),
+            graphType = measurementsSet[ZYGOSITY_ALL][geneId][qeid].plottype.t,
             notCategorical = !(graphType === 'nominal'),
             mpTermBaseURL = '../data/phenotypes/';
 
         /* prepare column/row descriptions */
+        node.append('div').attr('class', 'annotation-details-hint');
         table = node.append('table');
-        header = addRow(table);
-        mpterm = addRow(table);
-        mpdesc = addRow(table);
-        pvalue = addRow(table);
+        header = table.append('thead').append('tr');
+        mpterm = addRow(table, 'even');
+        pvalue = addRow(table, 'odd');
         if (notCategorical) {
-            effectsize = addRow(table);
-            stdError = addRow(table);
+            effectsize = addRow(table, 'even');
+            stdError = addRow(table, 'odd');
         }
-        numFemaleMutant = addRow(table);
-        numMaleMutant = addRow(table);
-        numFemaleWildtype = addRow(table);
-        numMaleWildtype = addRow(table);
+        numFemaleMutant = addRow(table, 'even');
+        numMaleMutant = addRow(table, 'odd');
+        numFemaleWildtype = addRow(table, 'even');
+        numMaleWildtype = addRow(table, 'odd');
 
         addColumn(header);
         addColumn(mpterm, 'MP term')
@@ -3324,6 +3423,16 @@
         addColumn(numFemaleWildtype, '# Wildtype female');
         addColumn(numMaleWildtype, '# Wildtype male');
 
+        var mgs = metadataGroups[geneId][qeid], addMetadataGroup = false,
+            groupToIndex = {};
+        if (mgs && mgs.groups && mgs.groups.length > 1) {
+            addMetadataGroup = true;
+            for (var mi = 0, mc = mgs.groups.length; mi < mc; ++mi)
+                groupToIndex[mgs.groups[mi].g] = mi + 1;
+            data.sort(function(a, b) {
+                return groupToIndex[a.mg] > groupToIndex[b.mg];
+            });
+        }
         while (i < c) {
             datum = data[i++];
             if (!datum)
@@ -3342,6 +3451,10 @@
                     title = "Hemizygous";
                     break;
             }
+            if (addMetadataGroup && groupToIndex[datum.mg] !== undefined) {
+                title += ' (group ' + groupToIndex[datum.mg] + ')';
+            }
+
             addZygosityHeader(header, id, title);
             if (datum.p < dcc.pvalueThreshold) {
                 addColumn(mpterm, datum.mp1.description,
@@ -3364,6 +3477,110 @@
         updateZygosityHeader();
     }
 
+
+    function getMetadataValuesRow(row, key, value, groupIdx) {
+        return '<tr class="' + (row % 2 ? 'odd' : 'even')
+            + (groupIdx === undefined ? '"><td>' :
+                '"><td class="metadata-group-idx">'
+                + (groupIdx + 1) + '</td><td>')
+            + key + '</td><td>' + value + '</td></tr>';
+    }
+
+    function getMetadataValuesHeader(title, showGroup) {
+        return '<div class="metadata-details-title">' + title + '</div>'
+            + '<table><thead><thead>'
+            + (showGroup ? '<td class="metadata-group-idx">Group</td>' : '')
+            + '<td>Parameter</td><td>Value</td></thead><tbody>';
+    }
+
+    function getMetadataDetails(geneId, qeid) {
+        var mg = metadataGroups[geneId][qeid], common = {},
+            groupCount = 0, diffRowCount = 0, commonRowCount = 0,
+            commonValues = '',
+            diffValues = getMetadataValuesHeader('Differing values', true);
+
+        if (mg.groups.length === 0)
+            return '<div class="metadata-details-warning">'
+                + 'Metadata required for analysis are unavailable</div>';
+
+        for (var grp in mg.groups) {
+            var keyValues = mg.groups[grp].v;
+            for (var key in keyValues) {
+                if (mg.diffSet[key]) {
+                    diffValues += getMetadataValuesRow(diffRowCount++,
+                        key, keyValues[key], groupCount);
+                } else {
+                    if (!common[key]) {
+                        common[key] = 1;
+                        commonValues += getMetadataValuesRow(commonRowCount++,
+                            key, keyValues[key]);
+                    }
+                }
+            }
+            groupCount++;
+        }
+        commonValues += '</tbody></table>';
+        diffValues += '</tbody></table>';
+
+        if (diffRowCount > 0)
+            diffValues += getMetadataValuesHeader('Common values');
+        else
+            diffValues = getMetadataValuesHeader('No metadata split');
+        return diffValues + commonValues;
+    }
+
+    function createTabbedPanels(target, panels) {
+        var selector = target.append('div').attr('class', 'details-tab'),
+            content = target.append('div').attr('class', 'details-panel');
+
+        selector.selectAll('div').data(panels).enter().append('div')
+            .classed('active-panel', function(d) {
+                return panels[0] === d; /* auto select first */
+            })
+            .text(function(d) {
+                return d;
+            })
+            .on('click', function(d) {
+                var selected = d3.select(this), datum = selected.datum(),
+                    tabs = selector.selectAll('div'),
+                    contents = content.selectAll('[class*="panel-content-"]');
+                tabs.classed('active-panel', function(d) {
+                    return datum === d;
+                });
+
+                contents.classed('hidden', true);
+                contents.filter(function(d) {
+                    return datum === d;
+                }).classed('hidden', false);
+            });
+
+        content.selectAll('div').data(panels).enter().append('div')
+            .attr('class', function(d) {
+                return 'panel-content-' + d;
+            })
+            .classed('hidden', function(d) {
+                return panels[0] !== d; /* hide content except for the first */
+            });
+    }
+
+    function createFurtherDetailsPanel(target) {
+        var node = target.append('div').attr('class', 'further-details');
+        createTabbedPanels(node, ['Annotation', 'Metadata']);
+        refitFurtherDetailsPanel(target);
+        return node;
+    }
+
+    function refitFurtherDetailsPanel(target) {
+        height(target.select('.details-panel'),
+            height(target.select('.further-details'))
+            - height(target.select('.details-tab')));
+    }
+
+    function displayMetadata(target, geneId, qeid) {
+        target.select('.panel-content-Metadata')
+            .html(getMetadataDetails(geneId, qeid));
+    }
+
     /**
      * Retrieves annotation results from the server and displayed them in the
      * annotations panel below the visualisation.
@@ -3381,21 +3598,19 @@
             '&sid=' + sid +
             '&qeid=' + qeid,
             function(data) {
-                var node = target.select('.annotation'),
-                    geneId = prepareGeneStrainCentreId(gid, sid, cid);
+                var node = target.select('.further-details'),
+                    geneId = prepareGeneStrainCentreId(gid, sid, cid),
+                    annotationDetails = node.select('.panel-content-Annotation');
+                node.classed('loading', false);
                 if (data && data.success) {
                     data = data.annotations;
-
-                    /* update the annotations cache */
                     if (!annotations[geneId])
                         annotations[geneId] = {};
                     annotations[geneId][qeid] = data;
-
-                    node.classed('loading', false);
-                    prepareStatisticsInformation(data, node,
-                        measurementsSet[ZYGOSITY_ALL][geneId][qeid].plottype.t);
+                    displayAnnotation(data, annotationDetails,
+                        gid, sid, cid, qeid);
                 } else
-                    node.text('Annotation data unavailable')
+                    annotationDetails.text('Annotation data unavailable')
                         .classed('annotation-warning', true);
             });
     }
@@ -3410,16 +3625,15 @@
      * @param {String} qeid Parameter key.
      */
     function displayStatisticsInformation(target, gid, sid, cid, qeid) {
-        var annotation, node = target.select('.annotation'),
+        var annotation, node = target.select('.panel-content-Annotation'),
             geneId = prepareGeneStrainCentreId(gid, sid, cid);
-        node.classed('loading', true).selectAll('*').remove;
 
         /* do we have annotation for this genotype? */
         if (annotations[geneId]) {
             /* do we have annotation for this parameter */
             annotation = annotations[geneId][qeid];
             if (annotation)
-                prepareStatisticsInformation(annotation, node);
+                displayAnnotation(annotation, node, gid, sid, cid, qeid);
             else
                 retrieveAndShowAnnotation(target, gid, sid, cid, qeid);
         } else
@@ -3441,9 +3655,9 @@
         addDiv(node, null, 'warn-message',
             'No ' + (what ? what : 'measurements') +
             ' for the following context');
-        addDiv(node, null, 'warn-parameter-key', param.e);
+        addDiv(node, null, 'warn-procedure', param.pn);
         addDiv(node, null, 'warn-parameter', param.n);
-        addDiv(node, null, 'warn-procedure', param.a);
+        addDiv(node, null, 'warn-parameter-key', param.e);
     }
 
     /**
@@ -3482,18 +3696,18 @@
         switch (plotType.t) {
             case 'series':
                 mutantStatistics =
-                    calculateStatistics(mutantDataset, 'a', 'x', 'y', 'a', 'm');
+                    calculateStatistics(mutantDataset, 'a', 'x', 'y', 'e', 'a', 'm');
                 if (!isWildtype)
                     wildtypeStatistics =
-                        calculateStatistics(wildtypeDataset, 'a', 'x', 'y', 'a', 'm');
+                        calculateStatistics(wildtypeDataset, 'a', 'x', 'y', 'e', 'a', 'm');
                 break;
 
             case 'point':
                 mutantStatistics =
-                    calculateStatistics(mutantDataset, 'a', 'd', 'y', 'a', 'm');
+                    calculateStatistics(mutantDataset, 'a', 'd', 'y', 'e', 'a', 'm');
                 if (!isWildtype)
                     wildtypeStatistics =
-                        calculateStatistics(wildtypeDataset, 'a', 'd', 'y', 'a', 'm');
+                        calculateStatistics(wildtypeDataset, 'a', 'd', 'y', 'e', 'a', 'm');
                 break;
 
             case 'nominal':
@@ -3564,6 +3778,8 @@
         dcc.viz[id] = new Visualisation(id, target, gid, sid, cid, qeid, true);
         dcc.viz[id].refresh();
         updateQcStatus(prepareGeneStrainCentreId(gid, sid, cid), qeid);
+        var geneId = prepareGeneStrainCentreId(gid, sid, cid);
+        displayMetadata(target, geneId, qeid);
         displayStatisticsInformation(target, gid, sid, cid, qeid);
     }
 
@@ -3629,6 +3845,14 @@
                         qcstatus[geneId] = {};
                     qcstatus[geneId][qeid] = data.qcStatus;
 
+                    /* update metadata groups */
+                    if (!metadataGroups[geneId])
+                        metadataGroups[geneId] = {};
+                    metadataGroups[geneId][qeid] = {};
+                    metadataGroups[geneId][qeid].diffSet =
+                        prepareMetadataGroups(data.metadataGroups);
+                    metadataGroups[geneId][qeid].groups = data.metadataGroups;
+
                     /* process without filtering for zygosity */
                     if (!measurementsSet[ZYGOSITY_ALL][geneId])
                         measurementsSet[ZYGOSITY_ALL][geneId] = {};
@@ -3663,23 +3887,83 @@
             });
     }
 
-    function plotParameter(id, target, gid, sid, cid, qeid) {
-        var data, geneId = prepareGeneStrainCentreId(gid, sid, cid);
-        if (qeid.indexOf('_VIA_') !== -1) {
-            retrieveAndVisualiseViabilityData(id, target, gid, sid, cid, qeid);
-        } else if (qeid.indexOf('_FER_') !== -1) {
-            retrieveAndVisualiseFertilityData(id, target, gid, sid, cid, qeid);
+    function getImageViewerHandler(id, cid, gid, sid, pid, qid, xl, yl) {
+        return function() {
+            d3.select('#sidebar').style('display', 'none');
+            refitContent();
+            d3.select(id).append('div').attr('id', 'imageviewer');
+            var centre = centresMap[cid],
+                gene = availableGenesMap[prepareGeneStrainCentreId(gid, sid, cid)];
+            dcc.imageViewer = new dcc.ComparativeImageViewer('imageviewer',
+                {
+                    splitType: 'vertical',
+                    title: '<span>' + centre.s + '</span>' +
+                        '<span>' + gene.strain + '</span>' +
+                        '<span>' + gene.alleleName + '</span>' +
+                        '<span>' + xl + '</span>' + yl,
+                    /* 'imageviewer' is an instance of 'phenodcc-imaging-display'
+                     * project hosted on the same server as Phenoview. */
+                    host: '/imageviewer/',
+                    exitHandler: function() {
+                        d3.select('#imageviewer').remove();
+                        d3.select('#sidebar').style('display', 'block');
+                        refitContent();
+                    }
+                });
+            dcc.imageViewer.view(cid, gid, sid, pid, qid);
+        };
+    }
+
+    function getImagingContextDetail(parameter) {
+        var html = '<table><tbody>';
+        html += '<tr><td>Procedure:</td><td>' + proceduresMap[parameter[PROCEDURE_ID_FIELD]].n + '</td></tr>';
+        html += '<tr><td>Parameter:</td><td>' + parameter[PARAMETER_NAME_FIELD] + '</td></tr>';
+        html += '<tr><td>Parameter key:</td><td>' + parameter[PARAMETER_KEY_FIELD] + '</td></tr>';
+        return html + '</tbody></table>';
+    }
+
+    function plotParameter(id, target) {
+        var gid = target.gene,
+            sid = target.strain,
+            cid = target.centre,
+            parameter = target.parameter,
+            pid = parameter[PROCEDURE_ID_FIELD],
+            qid = parameter[PARAMETER_ID_FIELD],
+            qeid = parameter[PARAMETER_KEY_FIELD],
+            plotType = target.plotType,
+            data, geneId = prepareGeneStrainCentreId(gid, sid, cid);
+
+        if (plotType.t === STR_IMAGE) {
+            target.classed('loading', false);
+            target.append('div')
+                .attr('class', 'image-viewer-context')
+                .html(getImagingContextDetail(parameter));
+            target.append('div')
+                .attr('class', 'start-image-viewer')
+                .text('Click to view media')
+                .on('click', getImageViewerHandler('#content',
+                    cid, gid, sid, pid, qid, plotType.l, plotType.yl));
         } else {
-            /* do we have data for this genotype? */
-            if (measurementsSet[zygosity][geneId]) {
-                /* do we have data for this parameter */
-                data = measurementsSet[zygosity][geneId][qeid];
-                if (data)
-                    visualiseData(id, target, gid, sid, cid, qeid);
-                else
+            if (dcc.imageViewer) {
+                dcc.imageViewer.clear();
+                dcc.imageViewer = null;
+            }
+            if (qeid.indexOf('_VIA_') !== -1) {
+                retrieveAndVisualiseViabilityData(id, target, gid, sid, cid, qeid);
+            } else if (qeid.indexOf('_FER_') !== -1) {
+                retrieveAndVisualiseFertilityData(id, target, gid, sid, cid, qeid);
+            } else {
+                /* do we have data for this genotype? */
+                if (measurementsSet[zygosity][geneId]) {
+                    /* do we have data for this parameter */
+                    data = measurementsSet[zygosity][geneId][qeid];
+                    if (data)
+                        visualiseData(id, target, gid, sid, cid, qeid);
+                    else
+                        retrieveAndVisualiseData(id, target, gid, sid, cid, qeid);
+                } else
                     retrieveAndVisualiseData(id, target, gid, sid, cid, qeid);
-            } else
-                retrieveAndVisualiseData(id, target, gid, sid, cid, qeid);
+            }
         }
     }
 
@@ -3737,13 +4021,15 @@
     function svgMouseventHandler(viz) {
         var svg = viz.state.n.v, xhair = svg.xhair,
             extend = viz.dim.p * 1 / 4 - 1;
-        svg.on('mouseover',
-            function() {
-                preventEventBubbling();
-                if (xhair)
-                    xhair.style('opacity', 1);
-                hideInformationBox();
-            })
+        svg.on('click', function() {
+            hideInformationBox();
+        })
+            .on('mouseover',
+                function() {
+                    preventEventBubbling();
+                    if (xhair)
+                        xhair.style('opacity', 1);
+                })
             .on('mouseout',
                 function() {
                     preventEventBubbling();
@@ -3829,7 +4115,8 @@
             if (t.y === null)
                 continue;
             dataPoint = {
-                m: t.m, /* the measurement id */
+                e: t.e, /* metadata group */
+                m: t.m, /* measurement id */
                 a: t.a, /* animal id */
                 x: t.x, /* unscaled values */
                 y: t.y,
@@ -3855,11 +4142,14 @@
                 case 'c': /* draw circle */
                     db.enter()
                         .append('circle')
+                        .attr('mg', function(d) {
+                            return d.e; /* metadata group */
+                        })
                         .attr('mid', function(d) {
-                            return d.m;
+                            return d.m; /* measurement id */
                         })
                         .attr('aid', function(d) {
-                            return d.a;
+                            return d.a; /* animal id */
                         })
                         .attr('r', size)
                         .attr('cx',
@@ -3885,11 +4175,14 @@
                 case 's': /* draw square */
                     db.enter()
                         .append('rect')
+                        .attr('mg', function(d) {
+                            return d.e; /* metadata group */
+                        })
                         .attr('mid', function(d) {
-                            return d.m;
+                            return d.m; /* measurement id */
                         })
                         .attr('aid', function(d) {
-                            return d.a;
+                            return d.a; /* animal id */
                         })
                         .attr('width', size * 2)
                         .attr('height', size * 2)
@@ -3937,13 +4230,17 @@
                 function(d) {
                     return d.s === 1 ? 'male' : 'female';
                 })
+            .attr('mg',
+                function(d) {
+                    return d.e; /* metadata group */
+                })
             .attr('mid',
                 function(d) {
-                    return d.m; /* measurement identifier */
+                    return d.m; /* measurement id */
                 })
             .attr('aid',
                 function(d) {
-                    return d.a; /* animal/specimen identifier */
+                    return d.a; /* animal id */
                 })
             .attr('r', radius)
             .attr('cx',
@@ -3997,9 +4294,9 @@
             }
 
             swarm = new Beeswarm(maleData, xScale(maleAxis), radius);
-            plotSwarm(swarm.swarm(), g, 'male', radius, onClick);
+            plotSwarm(swarm.swarm(0, SWARM_BOUND), g, 'male', radius, onClick);
             swarm = new Beeswarm(femaleData, xScale(femaleAxis), radius);
-            plotSwarm(swarm.swarm(), g, 'female', radius, onClick);
+            plotSwarm(swarm.swarm(0, SWARM_BOUND), g, 'female', radius, onClick);
         }
     }
 
@@ -4056,6 +4353,77 @@
                             .attr('class', iconCls);
                     }
                 });
+        };
+    }
+
+    function prepareMetadataGroups(mgs) {
+        if (!mgs || mgs.length === 0)
+            return null;
+
+        var diffSet = {}, keyValues = {}, i, c, key;
+        for (i in mgs)
+            mgs[i].v = JSON.parse('{' + mgs[i].v + '}');
+        for (key in mgs[0].v)
+            keyValues[key] = mgs[0].v[key];
+        for (i = 1, c = mgs.length; i < c; ++i)
+            for (key in mgs[i].v)
+                if (keyValues[key] !== mgs[i].v[key])
+                    diffSet[key] = 1;
+        return diffSet;
+    }
+
+    function prepareMetadataGroupInfo(data, diffSet) {
+        var msg = "<table><tbody>", key;
+        for (key in data)
+            if (diffSet[key])
+                msg += "<tr><td>" + key + "</td><td>" + data[key] + "</td></tr>";
+        return msg + "</tbody></table>";
+    }
+
+    function getMetadataGroupFilter(metadataGroup, includeMatching) {
+        return function(d, i) {
+            return (d.e === metadataGroup && includeMatching) ||
+                (d.e !== metadataGroup && !includeMatching);
+        };
+    }
+
+    function setOpacityNonMetadataGroupDatapoints(viz, metadataGroup, opacity) {
+        var svg = viz.state.n.v, i,
+            filter = getMetadataGroupFilter(metadataGroup, false),
+            isCategorical = viz.ptype.t === 'nominal',
+            selectorSuffix = isCategorical ? '.categorical .datapoints rect'
+            : '-datapoints ',
+            selectors = [];
+
+        if (!isCategorical) {
+            /* scatter plot (wildtype is rectangle) */
+            selectors.push('.wildtype' + selectorSuffix + 'rect');
+            /* beeswarm plot (both mutant and wildtype are circles) */
+            selectors.push('.wildtype' + selectorSuffix + 'circle');
+            selectors.push('.mutant' + selectorSuffix + 'circle');
+        } else
+            selectors.push(selectorSuffix);
+
+        for (i in selectors)
+            svg.selectAll(selectors[i]).filter(filter)
+                .attr('opacity', opacity);
+    }
+
+    function getMetadataGroupMouseOverHandler(viz, diffSet) {
+        return function(metadataGroup) {
+            preventEventBubbling();
+            relocateInformationBox(getBoundedMouseCoordinate(viz));
+            informationBox.html(prepareMetadataGroupInfo(metadataGroup.v, diffSet))
+                .attr('class', 'metadata-group-info');
+            setOpacityNonMetadataGroupDatapoints(viz, metadataGroup.i, 0.25);
+        };
+    }
+
+    function getMetadataGroupMouseOutHandler(viz) {
+        return function(metadataGroup) {
+            preventEventBubbling();
+            hideInformationBox();
+            setOpacityNonMetadataGroupDatapoints(viz, metadataGroup.i, 1);
         };
     }
 
@@ -4237,9 +4605,10 @@
      * 
      * @param {Real} datum Object with array of category percentages.
      * @param {Object} spec Specification of the segmented column container.
+     * @param {Boolean} isMale True if male segments; otherwise, female.
      * @returns {Object} Array of segmented column specifications.
      */
-    function convertPercentagesToSegmentSpec(datum, spec) {
+    function convertPercentagesToSegmentSpec(datum, spec, isMale) {
         var percentage, percentages = datum.s, category, segments = [],
             height = spec.ch * 0.01; /* converts percentage to height */
 
@@ -4285,7 +4654,7 @@
      */
     function plotSegmentColumn(viz, isMale, datum, x, y, spec) {
         var svg = viz.state.n.s, i, c, db, width = spec.cw,
-            segments = convertPercentagesToSegmentSpec(datum, spec);
+            segments = convertPercentagesToSegmentSpec(datum, spec, isMale);
 
         c = segments.length;
         if (c > 0) {
@@ -4299,7 +4668,7 @@
 
             showSegmentedColumnTotalAndGender(svg,
                 x + 0.5 * width,
-                segments[c - 1].y - 1.5 * spec.dy,
+                segments[c - 1].y - .5 * spec.tp,
                 datum.t, isMale ? 'Male' : 'Female');
         }
 
@@ -4411,12 +4780,13 @@
                 swarmLabelY, 'Male (WT)', 'swarm-label');
 
         if (viz.isActiveCtrl('whisker')) {
-            if (viz.isActiveCtrl('female')
-                && viz.state.mutantStatistics.female) {
-                plotBoxAndWhisker('mutant-female-swarm', viz,
-                    viz.state.mutantStatistics.female.overall.y,
-                    mutantFemaleAxis, 0, 60,
-                    isWildtype ? 'wildtype' : 'mutant');
+            if (viz.isActiveCtrl('female')) {
+                if (viz.state.mutantStatistics.female
+                    && viz.state.mutantStatistics.female.overall)
+                    plotBoxAndWhisker('mutant-female-swarm', viz,
+                        viz.state.mutantStatistics.female.overall.y,
+                        mutantFemaleAxis, 0, 60,
+                        isWildtype ? 'wildtype' : 'mutant');
 
                 if (!isWildtype && viz.isActiveCtrl('wildtype') &&
                     viz.state.wildtypeStatistics.female &&
@@ -4425,11 +4795,13 @@
                         viz.state.wildtypeStatistics.female.overall.y,
                         wildtypeFemaleAxis, 0, 60, 'wildtype');
             }
-            if (viz.isActiveCtrl('male') && viz.state.mutantStatistics.male) {
-                plotBoxAndWhisker('mutant-male-swarm', viz,
-                    viz.state.mutantStatistics.male.overall.y,
-                    mutantMaleAxis, 0, 60,
-                    isWildtype ? 'wildtype' : 'mutant');
+            if (viz.isActiveCtrl('male')) {
+                if (viz.state.mutantStatistics.male
+                    && viz.state.mutantStatistics.male.overall)
+                    plotBoxAndWhisker('mutant-male-swarm', viz,
+                        viz.state.mutantStatistics.male.overall.y,
+                        mutantMaleAxis, 0, 60,
+                        isWildtype ? 'wildtype' : 'mutant');
 
                 if (!isWildtype && viz.isActiveCtrl('wildtype') &&
                     viz.state.wildtypeStatistics.male &&
@@ -4469,26 +4841,18 @@
      * @returns {Object} Specification for plotting each grid cell.
      */
     function calculateColumnPlotSpecification(width, height) {
-        /* divide grid cell horizontally into 10 equal columns,
-         * and vertically into 20 equal cells per column */
-        var dx = width * 0.1, dy = height * 0.05,
-            /* used for dividing cell into male and female columns */
+        var dx = width * 0.1,
             horizontalCellMiddle = width * 0.5,
-            /* make the column 15 cells high and 3 columns wide */
-            columnHeight = dy * 14, columnWidth = dx * 3,
-            /* vertical padding around the segmented column */
-            topPadding = dy * 2, /* used for putting column label */
-            bottomPadding = dy * 4, /* used for putting grid cell label */
-
-            /* specification for horizontal reference bar */
             barX = dx * 0.5,
-            barY = height - bottomPadding,
             barWidth = width - 2 * dx,
-            barMiddle = horizontalCellMiddle * 0.5;
-
+            columnWidth = dx * 3,
+            barMiddle = horizontalCellMiddle * 0.5,
+            bottomPadding = 25,
+            topPadding = 40,
+            barY = height - bottomPadding,
+            columnHeight = height - bottomPadding - topPadding;
         return {
             'dx': dx,
-            'dy': dy,
             'cm': horizontalCellMiddle,
             'cw': columnWidth,
             'ch': columnHeight,
@@ -4548,6 +4912,9 @@
 
         /* clear out existing category usage information */
         categoryColourIndex = availableParametersMap[viz.qeid].colourIndex;
+
+        rect(viz.state.n.s, x, y, 4 * width,
+            height, 'mutant-categorical-split');
 
         /* plot heterozygous */
         plotFrequencyColumnCell(viz,
@@ -4643,6 +5010,7 @@
         while (k < n) {
             dataPoint = data[k++];
             dataPointArray.push({
+                'e': dataPoint.e, /* metadata group */
                 'm': dataPoint.m, /* the measurement id */
                 'a': dataPoint.a, /* animal id */
                 'n': dataPoint.n, /* animal name */
@@ -4661,7 +5029,7 @@
         }
 
         svg.selectAll('.datapoints').remove();
-        svg = svg.append('g').attr('class', '.datapoints');
+        svg = svg.append('g').attr('class', 'datapoints');
         var db = svg.selectAll('rect').data(dataPointArray);
         db.exit().remove();
         db.enter().append('rect')
@@ -4681,13 +5049,16 @@
                 function(d) {
                     return d.h;
                 })
+            .attr('mg', function(d) {
+                return d.e; /* metadata group */
+            })
             .attr('mid',
                 function(d) {
-                    return d.m;
+                    return d.m; /* measurement id */
                 })
             .attr('aid',
                 function(d) {
-                    return d.a;
+                    return d.a; /* animal id */
                 })
             .attr('class',
                 function(d) {
@@ -4746,7 +5117,7 @@
             svg = state.n.v, vizDim = viz.chart.dim,
             padding = viz.dim.p, halfPadding = 0.5 * padding,
             width = vizDim.w - padding,
-            height = vizDim.h - 2 * padding,
+            height = vizDim.h - 2.3 * padding,
             /* divide the visualisation chart area into a 3x5 grid
              * 5th column cells are merged to display specific data point. the
              * rest of the grids display nine visualisations for each of the
@@ -4757,8 +5128,7 @@
              *          Male  (1, 0)  (1, 1)  (1,2)  (1, 3)
              *   Male/Female  (2, 0)  (2, 1)  (2,2)  (2, 3)
              */
-            cellWidth = Math.floor(width / 6),
-            cellHeight = Math.floor(height / 3);
+            cellWidth = Math.floor(width / 6);
 
         /* used for on mouse over events for data points */
         viz.scale.x = getLinearScaler(0, vizDim.w, 0, vizDim.w);
@@ -4768,12 +5138,12 @@
         containerDomNode.selectAll('.categorical').remove();
         viz.state.n.s = svg = svg.append('g').attr('class', 'categorical');
 
-        plotFrequencyColumns(viz, freqGrid, padding * 0.25, 2 * padding,
-            cellWidth, 3 * cellHeight);
+        plotFrequencyColumns(viz, freqGrid, padding * 0.25, 1.75 * padding,
+            cellWidth, height);
 
         plotCategoricalDatapoints(viz, mutantData,
             halfPadding + 5 * cellWidth, 2 * padding,
-            cellWidth, 2 * cellHeight, getDatapointOnMouseClickHandler(viz));
+            cellWidth, height, getDatapointOnMouseClickHandler(viz));
 
         displayCategoryLegends(viz, halfPadding, halfPadding, width);
         viz.title(); /* show title of the visualisation */
@@ -4869,6 +5239,10 @@
                         plotType = getLabelsAndConvertors(parameter);
                 }
             }
+
+            if (parameter.d === 'IMAGE') {
+                plotType.t = 'image';
+            }
         }
         return plotType;
     }
@@ -4883,6 +5257,7 @@
         /* initialise with convertor function for measurement values
          * and the parameter name */
         var plotType = {
+            yt: getYValueType(parameter.d),
             yc: getDataConvertor(parameter.d),
             yl: parameter.n,
             l: proceduresMap[parameter.p].n /* procedure name */
@@ -4900,7 +5275,8 @@
             switch (parameter.it) {
                 case 'float':
                     /* if unit is minutes, plot as series; otherwise, scatter */
-                    if ('minutes' === parameter.iu) {
+                    if ('minutes' === parameter.iu ||
+                        'seconds' === parameter.iu) {
                         plotType.t = 'series';
                         plotType.xt = 'i';
                     } else {
@@ -4962,7 +5338,35 @@
         }
         if (plotType.yl)
             plotType.yl = plotType.yl.icap();
+
+        /**
+         * Special case for dervied parameter: Body weight
+         */
+        if (parameter.e === 'IMPC_BWT_001_001') {
+            plotType.t = 'series';
+            plotType.xl = 'Age In Weeks';
+            plotType.xc = getDataConvertor('float');
+            plotType.xt = 'f';
+        }
+
         return plotType;
+    }
+
+    function getYValueType(datatype) {
+        switch (datatype) {
+            case 'INT':
+                return 'i';
+
+            case 'DATETIME':
+                return 'd';
+
+            case 'TEXT':
+                return 't';
+            case 'FLOAT':
+            default:
+                return 'f';
+
+        }
     }
 
     /**
@@ -5025,7 +5429,7 @@
     }
 
     /**
-     * Process the raw data that was retieved from the server. This prepares
+     * Process the raw data that was retrieved from the server. This prepares
      * the data for statistical calculations.
      * 
      * @param {Object} data Raw data to process.
@@ -5056,6 +5460,7 @@
             if (isFinite(x) || x instanceof Date)
                 if (isFinite(y))
                     processed.push({
+                        e: datum.e, /* metadata group */
                         m: datum.m, /* measurement id */
                         x: x, /* x-axis increments */
                         y: y, /* y-axis value */
@@ -5127,7 +5532,7 @@
                     .attr('id', this.id + '-svg')
                     .attr('width', this.chart.dim.w)
                     .attr('height', this.chart.dim.h),
-                'i': addDiv(container, null, 'annotation'),
+                'i': createFurtherDetailsPanel(container),
                 'a': {}
             },
             'q': {},
@@ -5211,6 +5616,7 @@
             if (state.refreshFunction)
                 state.refreshFunction(me);
             me.highlight();
+            me.metadataGroups();
         },
         warn: function(msg) {
             var me = this, g = me.state.n.v;
@@ -5615,7 +6021,8 @@
                     femaleAxis, maleAxis, wildtypeDatapointRadius);
         },
         showDataPoints: function() {
-            var me = this, statistics, i, c, data, columnDataset, state;
+            var me = this, statistics, i, c, data,
+                columnDataset, state, leaning = undefined;
             if (me.isActiveCtrl('point')) {
                 if (me.type === 'series') {
                     statistics = getStatistics(me, true);
@@ -5631,14 +6038,16 @@
                     state = me.state;
                     if (me.isActiveCtrl('wildtype'))
                         me.scatter('wildtype',
-                            filterByGender(state.wildtypeDataset, me), 's', 4);
+                            filterByGender(state.wildtypeDataset, me),
+                            's', wildtypeDatapointRadius);
                     me.scatter('mutant',
-                        filterByGender(state.mutantDataset, me), 'c', 3);
+                        filterByGender(state.mutantDataset, me),
+                        'c', mutantDatapointRadius);
                 }
             }
         },
-        scatter: function(id, data, type, size) {
-            var me = this, state = me.state, halfSize = 0.5 * size,
+        scatter: function(id, data, type, halfSize) {
+            var me = this, state = me.state, size = 2 * halfSize,
                 xScale = me.scale.x, yScale = me.scale.y;
 
             if (type === 'c')
@@ -5650,11 +6059,14 @@
                     .attr('class', function(d) {
                         return d.s === 1 ? 'male' : 'female';
                     })
+                    .attr('mg', function(d) {
+                        return d.e; /* metadata group */
+                    })
                     .attr('mid', function(d) {
-                        return d.m;
+                        return d.m; /* measurement id */
                     })
                     .attr('aid', function(d) {
-                        return d.a;
+                        return d.a; /* animal id */
                     })
                     .attr('cx', function(d) {
                         return xScale(d.x);
@@ -5676,6 +6088,15 @@
                     .attr('class', function(d) {
                         return d.s === 1 ? 'male' : 'female';
                     })
+                    .attr('mg', function(d) {
+                        return d.e; /* metadata group */
+                    })
+                    .attr('mid', function(d) {
+                        return d.m; /* measurement id */
+                    })
+                    .attr('aid', function(d) {
+                        return d.a; /* animal id */
+                    })
                     .attr('x', function(d) {
                         return xScale(d.x) - halfSize;
                     })
@@ -5686,7 +6107,7 @@
                     .attr('height', size)
                     .on('click', getDatapointOnMouseClickHandler(me));
         },
-        swarm: function(dataset, x, type) {
+        swarm: function(dataset, x, type, leaning) {
             var me = this, state = me.state, g, i, c,
                 radius = me.gid === 0 ?
                 wildtypeDatapointRadius : mutantDatapointRadius,
@@ -5698,7 +6119,7 @@
             g = state.n.v.append('g').attr('class',
                 type + '-datapoints group-' + x);
             swarm = new Beeswarm(dataset, xScale(x), radius);
-            plotSwarm(swarm.swarm(), g, type,
+            plotSwarm(swarm.swarm(leaning, SWARM_BOUND), g, type,
                 radius, getDatapointOnMouseClickHandler(me));
         },
         highlight: function() {
@@ -5717,6 +6138,7 @@
                             seriesDataPoints.d,
                             function(d) {
                                 return {
+                                    e: d.e,
                                     m: d.m,
                                     a: d.a,
                                     x: d.x,
@@ -5740,6 +6162,49 @@
                 containerDomNode = me.state.n.v;
                 containerDomNode.selectAll('.xhair').remove();
                 containerDomNode.on('mousemove', null);
+            }
+        },
+        metadataGroups: function() {
+            var me = this, containerDomNode = me.state.n.v,
+                mg = metadataGroups[me.geneId][me.qeid], x = 1.5 * me.dim.p, d,
+                radius = 12, distanceFromBottom = me.dim.h - .30 * me.dim.p,
+                i = 0, g, textY = me.dim.h - .25 * me.dim.p;
+            containerDomNode.selectAll('.metadata-group-label').remove();
+            if (mg && mg.groups) {
+                if (mg.groups.length > 1) {
+                    text(containerDomNode, .25 * me.dim.p,
+                        textY, 'Metadata split:', 'metadata-group-label');
+                    d = containerDomNode.selectAll('.metadata-group')
+                        .data(mg.groups);
+                    g = d.enter().append('g')
+                        .attr('class', 'metadata-group')
+                        .on('mouseenter', getMetadataGroupMouseOverHandler(me, mg.diffSet))
+                        .on('mouseleave', getMetadataGroupMouseOutHandler(me));
+
+                    g.append('circle')
+                        .attr('cx', function(d) {
+                            var cx = x;
+                            x += 2.75 * radius;
+                            return cx;
+                        })
+                        .attr('cy', distanceFromBottom)
+                        .attr('r', radius);
+
+                    i = 0;
+                    x = 1.5 * me.dim.p;
+                    g.append('text')
+                        .attr('x', function(d) {
+                            var cx = x;
+                            x += 2.75 * radius;
+                            return cx;
+                        })
+                        .attr('y', textY)
+                        .text(function(d) {
+                            return ++i;
+                        });
+
+                    d.exit().remove();
+                }
             }
         }
     };
@@ -6068,12 +6533,13 @@
         };
     }
 
+    var ALL_ZYGOSITY_SELECTED = controlOptions.hom |
+        controlOptions.het | controlOptions.hem;
+
     function addZygosityOption(toolbar, type, tip) {
         var control = addDiv(toolbar, null, 'control'),
             suffix = '-off', config = dcc.visualisationControl,
-            combined = controlOptions.hom |
-            controlOptions.het | controlOptions.hem,
-            showAll = (config & combined) === combined;
+            showAll = (config & ALL_ZYGOSITY_SELECTED) === ALL_ZYGOSITY_SELECTED;
         if ((type === 'zygosity_all' && showAll) ||
             (!showAll && (config & controlOptions[type]))) {
             suffix = '-on';
@@ -6095,6 +6561,12 @@
         var i, c = options.length, label, control, toolbarWidth = 66,
             expandedWidth = (c + 1) * toolbarWidth,
             group = addDiv(toolbar, null, 'control-group');
+
+        /* if none of the zygosities were selected,
+         * by default, select all zygosities */
+        if ((ALL_ZYGOSITY_SELECTED & dcc.visualisationControl) === 0) {
+            dcc.visualisationControl |= ALL_ZYGOSITY_SELECTED;
+        }
 
         label = addDiv(group, 'zygosity-label', 'control');
         control = options[0];
@@ -6209,16 +6681,6 @@
                 'l': 'Show arithmetic mean'
             }]);
         addControl(toolbar, 'crosshair', 'Show crosshair');
-        addControlGroup('errorbar', toolbar, [
-            {
-                't': 'errorbar',
-                'l': 'Show error bar'
-            },
-            {
-                't': 'std_err',
-                'l': 'Show standard error instead of standard deviation'
-            }
-        ]);
         addZoomOptions(toolbar, [
             {
                 't': 'zoom_small',
@@ -6292,6 +6754,9 @@
                                     processParameters(data);
                                     progress(100, 'All done...');
 
+                                    if (genes === undefined && params === undefined)
+                                        fullConfigHasBeenLoaded = true;
+
                                     /* only set the expiration countdown when
                                      * configuration data was loaded */
                                     if (genes === undefined &&
@@ -6314,7 +6779,7 @@
         var content = d3.select('#content'),
             navigator = addDiv(content, 'navigator'),
             list = addDiv(content, 'list');
-        
+
         /* Only show details panel if there is enough screen resolution */
         if (width('body') >= 1440)
             detailsPanel = new DetailsPanel(content);
@@ -6332,7 +6797,8 @@
          * reload data if it has expired. We cache configuration data during
          * a session as it does not change very often, however, it should not
          * be cached forever, in case they do change between a session. */
-        if (dateConfigDataExpires === null ||
+        if (fullConfigHasBeenLoaded === false ||
+            dateConfigDataExpires === null ||
             dateConfigDataExpires < new Date()) {
             loadConfigData(d3.select('#content'), showConfigurationInterface);
         } else
@@ -6352,24 +6818,28 @@
         for (i = 0, c = navigatorItems.length; i < c; ++i) {
             datum = navigatorItems[i];
             section = addDiv(parent, null, 'nav-section');
-            addDiv(section, null, null, datum.title);
+            addDiv(section, datum.id ? datum.id : null, null, datum.title);
             ul = section.append('ul').text(datum.label);
             datum = datum.items;
             for (j = 0, d = datum.length; j < d; ++j) {
                 node = datum[j];
                 ul.append('li').attr('id', node.id + '-browse')
                     .text(node.label)
+                    .attr('title', node.hint)
                     .on('click', getClickHandler(node.fn, list));
             }
         }
-        d3.select('#genes-browse')
+        d3.select('#genes-basket-browse')
             .append('span').attr('id', 'genes-count')
+            .attr('title', 'Number of genes that have been\nselected for comparison')
             .text(geneList.count());
-        d3.select('#parameters-browse')
+        d3.select('#parameters-basket-browse')
             .append('span').attr('id', 'parameters-count')
+            .attr('title', 'Number of parameters that have been\nselected for comparison')
             .text(parameterList.count());
 
         addDiv(parent, 'visualise-button', null, 'Visualise')
+            .attr('title', 'Comparatively visualise the current\nselection of genes and parameters')
             .on('click', function() {
                 preventEventBubbling();
                 if (geneList.count() === 0) {
@@ -6414,7 +6884,7 @@
         clear(parent);
         var header = addDiv(parent, 'list-header'),
             content = addDiv(parent, 'list-content');
-        content.style('height', (height(parent) - height(header) - 1) + 'px');
+        height(content, height(parent) - height(header) - 1);
         return {
             'header': header,
             'content': content
@@ -6695,9 +7165,11 @@
 
     function addDetailedParameterFields(tr, datum) {
         var temp, td = tr.append('td').attr('class', 'icon-col');
-        td.append('img').attr('class', 'small-param-icon')
-            .attr('src', 'images/icon_' +
-                datum.e.match(REGEX_PROC_KEY)[1] + '.png');
+
+        temp = datum.e.match(REGEX_PROC_KEY)[1];
+        td.append('div').attr('class', 'small-param-icon')
+            .style('background-color', procedureColour[temp])
+            .text(temp);
 
         td = tr.append('td').attr('class', 'content-col');
         temp = addDiv(td, null, 'left-field');
@@ -6823,9 +7295,12 @@
 
     function showProcedureParameterHeader(parent, procedure, count) {
         var link = '/impress/protocol/' + procedure.id;
-        parent.append('a').attr('href', link)
-            .append('img').attr('class', 'small-param-icon')
-            .attr('src', 'images/icon_' + procedure.c + '.png');
+        parent.append('a')
+            .attr('href', link)
+            .append('div')
+            .attr('class', 'small-param-icon')
+            .style('background-color', procedureColour[procedure.c])
+            .text(procedure.c);
         parent.append('a').attr('href', link)
             .attr('class', 'large-name').text(procedure.n +
             ', Version ' + procedure.M + '.' + procedure.m);
@@ -6833,7 +7308,7 @@
     }
 
     function showProcedures(parent) {
-        var procedure, i, c, node;
+        var procedure, i, c, node, temp;
         if (detailsPanel)
             detailsPanel.changeMode(PROCEDURE_DETAILS);
         clear(d3.select('#controls'));
@@ -6842,7 +7317,11 @@
         for (i = 0, c = procedures.length; i < c; ++i) {
             procedure = procedures[i];
             node = addDiv(parent, null, 'procedure');
-            addDiv(node, null, 'procedure-icon-' + procedure.c);
+            temp = addDiv(node, null, 'procedure-icon');
+            temp.style('background-color', procedureColour[procedure.c]);
+            temp.append('div')
+                .attr('class', 'procedure-icon-label')
+                .text(procedure.c);
             addDiv(node, null, null, procedure.n);
             addDiv(node, null, null, procedure.M + '.' + procedure.m);
             node.on('click', getProcedureClickHandler(procedure));
@@ -7247,26 +7726,22 @@
      * Sets new dimension for the visualisation control side toolbar.
      */
     function refitSidebar() {
-        d3.select('#sidebar').style('height', (
-            height(body) - height('#header')) + 'px');
+        height('#sidebar', height(body) - height('#header'));
     }
 
     /**
      * Sets new dimension for the visualisation context.
      */
     function refitContent() {
-        d3.select('#content').style('height', (
-            height(body) - height('#header')) + 'px');
-        d3.select('#content').style('width', (
-            width(body) - width('#sidebar')) + 'px');
+        height('#content', height(body) - height('#header'));
+        width('#content', width(body) - width('#sidebar'));
     }
 
     /**
      * Set dimension for user interface components in visualisation mode.
      */
     function refitVisualise() {
-        d3.select('#cluster').style('height', (
-            height('#content') - height('#infobar')) + 'px');
+        height('#cluster', height('#content') - height('#infobar'));
     }
 
     /**
@@ -7275,17 +7750,15 @@
     function refitList() {
         var content = document.getElementById('list-content');
         if (content)
-            d3.select(content).style('height', (
-                height('#list') - height('#list-header') - 1) + 'px');
+            height(content, height('#list') - height('#list-header') - 1);
     }
 
     /**
      * Set dimension for user interface components in configuration mode.
      */
     function refitConfigure() {
-        d3.select('#list').style('width', (
-            width('#content') - width('#navigator')
-            - (detailsPanel ? width('#details-panel') : 0) - 2) + 'px');
+        width('#list', width('#content') - width('#navigator')
+            - (detailsPanel ? width('#details-panel') : 0) - 2);
         refitList();
         if (detailsPanel)
             detailsPanel.refit();
@@ -7376,7 +7849,8 @@
      */
     function addVisualisationTools(td, gid, sid, cid, qeid) {
         var geneId = prepareGeneStrainCentreId(gid, sid, cid),
-            tools = addDiv(td, null, 'viz-tools'), shareGroup;
+            tools = addDiv(td, null, 'viz-tools'), shareGroup,
+            bookmark = prepareBookmark(geneId, qeid);
         shareGroup = addDiv(tools, null, 'share-button')
             .attr('title', 'Share this visualisation');
         addDiv(shareGroup, null, 'email-button')
@@ -7386,7 +7860,7 @@
             });
         addDiv(tools, null, 'download-button')
             .attr('title', 'Download raw data for this visualisation')
-            .on('click', getRawDataDownloader(gid, sid, cid, qeid));
+            .on('click', getRawDataDownloader(gid, sid, cid, qeid, bookmark));
 
         addDiv(tools, 'qcstatus-' + geneId + '-' + qeid);
     }
@@ -7399,11 +7873,11 @@
      * @param {Integer} gid Genotype identifier.
      * @param {Integer} sid Strain identifier.
      * @param {Integer} cid Centre identifier.
-     * @param {String} qeid Parameter key.
+     * @param {Object} parameter The parameter object. 
      * @param {Integer} index Index inside the array of visualisations.
      * @returns {Object} DOM node that contains the visualisation object.
      */
-    function addClusterRow(tr, gid, sid, cid, qeid, index) {
+    function addClusterRow(tr, gid, sid, cid, parameter, index) {
         var id = (gid % 2) + "-" + index,
             td = tr.append("td"),
             vizContainer = td.append("div")
@@ -7411,12 +7885,14 @@
             .style("width", visualisationWidth + "px")
             .style("height", getAspectHeight(visualisationWidth) +
                 heightExtension + "px");
+        vizContainer.index = index;
         vizContainer.centre = cid;
         vizContainer.gene = gid;
         vizContainer.strain = sid;
-        vizContainer.parameter = qeid;
-        vizContainer.index = index;
-        addVisualisationTools(td, gid, sid, cid, qeid);
+        vizContainer.parameter = parameter;
+        vizContainer.plotType = determinePlotType(parameter);
+        if (vizContainer.plotType.t !== STR_IMAGE)
+            addVisualisationTools(td, gid, sid, cid, parameter[PARAMETER_KEY_FIELD]);
         return vizContainer;
     }
 
@@ -7438,7 +7914,7 @@
                 geneList.traverse(function(gene) {
                     visualisationCluster.push(
                         addClusterRow(tr, gene.gid, gene.sid, gene.cid,
-                            parameter[PARAMETER_KEY_FIELD], k++));
+                            parameter, k++));
                 });
             });
         } else
@@ -7493,13 +7969,12 @@
     function renderVisualisation(vizContainer) {
         if (vizContainer.isRendered)
             return;
-        var gid = vizContainer.gene,
-            sid = vizContainer.strain,
-            cid = vizContainer.centre,
-            qeid = vizContainer.parameter,
-            geneId = prepareGeneStrainCentreId(gid, sid, cid);
-        plotParameter('viz-' + geneId + "-" + qeid +
-            "-" + vizContainer.index, vizContainer, gid, sid, cid, qeid);
+        var geneId =
+            prepareGeneStrainCentreId(vizContainer.gene,
+                vizContainer.strain,
+                vizContainer.centre);
+        plotParameter('viz-' + geneId + "-" + vizContainer.parameterKey +
+            "-" + vizContainer.index, vizContainer);
         vizContainer.isRendered = true;
     }
 
@@ -7589,17 +8064,17 @@
     dcc.visualise = function(genesString, parametersString) {
         /* JSP sets the value to 'null' when query params are unspecified */
         if (genesString === 'null')
-            genesString = null;
+            genesString = undefined;
         if (parametersString === 'null') {
-            parametersString = null;
-            startEngine(genesString, null);
+            parametersString = undefined;
+            startEngine(genesString, parametersString);
         } else
             d3.json('rest/expand?gids=' + genesString +
                 '&types=' + parametersString, function(data) {
                     if (data && data.success)
                         startEngine(genesString, data.parameters);
                     else
-                        startEngine(genesString, null);
+                        startEngine(genesString, undefined);
                 });
     };
 
@@ -7711,6 +8186,7 @@
                 case 1: /* centre details */
                     me.node = addDiv(parent, 'centre-details');
                     me.proc = addDiv(me.node, 'procedures-with-data');
+                    me.procName = addDiv(me.node, 'procedure-name');
                     me.mode = mode;
                     break;
                 case 2: /* procedures and parameters with data */
@@ -7759,25 +8235,41 @@
                     });
             };
         },
+        getProcedureNameSetter: function(p) {
+            var me = this;
+            return function() {
+                me.procName.html(p.n);
+            };
+        },
         showProceduresWithData: function(available, context, noParameters) {
-            var me = this, i, c, proc, details = me.proc, temp = [];
+            var me = this, i, c, proc, details = me.proc,
+                temp = [], alreadyIn = {};
+
             clear(details);
+            me.procName.html('');
             for (i = 0, c = available.length; i < c; ++i) {
                 proc = proceduresMap[available[i]];
-                temp.push({
-                    'c': proc.c,
-                    'p': proc
-                });
+                if (alreadyIn[proc.c] === undefined) {
+                    alreadyIn[proc.c] = 1;
+                    temp.push({
+                        'c': proc.c,
+                        'p': proc
+                    });
+                }
             }
             temp.sort(getComparator('c'));
             for (i in temp) {
                 proc = temp[i];
-                details.append('img').attr('class', 'small-param-icon')
-                    .attr('src', 'images/icon_' + proc.c + '.png')
-                    .on('click', noParameters === undefined ?
-                        me.getParametersHandler(proc.p, context) : null);
+                c = details.append('div')
+                    .attr('class', 'small-param-icon')
+                    .style('background-color', procedureColour[proc.c])
+                    .text(proc.c);
+                if (noParameters === undefined)
+                    c.on('click', me.getParametersHandler(proc.p, context));
+                else
+                    c.on('mouseenter', me.getProcedureNameSetter(proc.p));
             }
-            c = details.select('img');
+            c = details.select('.small-param-icon');
             temp = c.on('click');
             if (temp)
                 temp.call(c.node());
@@ -7858,9 +8350,9 @@
                 case 1: /* centre details */
                     break;
                 case 2: /* procedures and parameters with data */
-                    me.param.style('height', (height(me.parent)
+                    height(me.param, height(me.parent)
                         - height(me.title) - height(me.proc)
-                        - height(me.procTitle)) + 'px');
+                        - height(me.procTitle));
                     break;
                 case 3: /* procedure details */
                     break;
@@ -8170,12 +8662,20 @@
 
     var scaledYComparator = getComparator('sy');
     Beeswarm.prototype = {
-        swarm: function() {
-            var me = this, s = [], x = me.xaxis,
+        swarm: function(leaning, bound) {
+            var me = this, s = [], x = me.xaxis, v, ub, lb,
                 r = me.radius, data = me.data, i, c = data.length;
             data.sort(scaledYComparator);
-            for (i = 0; i < c; ++i)
-                data[i].sx = get_x(i, data[i], s, x, r);
+            ub = x + bound;
+            lb = x - bound;
+            for (i = 0; i < c; ++i) {
+                v = get_x(i, data[i], s, x, r, leaning);
+                if (v > ub)
+                    v = ub;
+                if (v < lb)
+                    v = lb;
+                data[i].sx = v;
+            }
             return data;
         }
     };
@@ -8250,19 +8750,23 @@
     }
 
     var distanceComparator = getComparator('d');
-    function choose_x(intervals, xaxis) {
-        var i, c = intervals.length, distance = [];
+    function choose_x(intervals, xaxis, leaning) {
+        var i, c = intervals.length, distance = [], x;
         for (i = 0; i < c; ++i) {
+            x = intervals[i].x;
+            if ((leaning === 'l' && x > xaxis) ||
+                (leaning === 'r' && x < xaxis))
+                continue;
             distance.push({
                 'i': i,
-                'd': Math.abs(xaxis - intervals[i].x)
+                'd': Math.abs(xaxis - x)
             });
         }
         distance.sort(distanceComparator);
         return intervals[distance[0].i].x;
     }
 
-    function get_x(index, datum, swarm_boundary, xaxis, radius) {
+    function get_x(index, datum, swarm_boundary, xaxis, radius, leaning) {
         var x, y = datum.sy,
             isects = find_candidate_intervals(y, swarm_boundary),
             preferred_choice = {
@@ -8275,7 +8779,7 @@
         isects.push(preferred_choice);
         isects.push(preferred_choice);
         isects = remove_invalid_intervals(isects);
-        x = choose_x(isects, xaxis);
+        x = choose_x(isects, xaxis, leaning);
         swarm_boundary.push({
             'index': index,
             'x': x,
@@ -8284,5 +8788,107 @@
         });
         return x;
     }
+
+    /* colours from http://tools.medialab.sciences-po.fr/iwanthue/index.php */
+    var iWantHue = ["#47BEC0",
+        "#F04A1C",
+        "#DB41E2",
+        "#48C621",
+        "#60385A",
+        "#3E5617",
+        "#7092EC",
+        "#F13F7A",
+        "#BEA927",
+        "#76360E",
+        "#D99BBB",
+        "#33626B",
+        "#E39366",
+        "#76B465",
+        "#9F2F84",
+        "#D885E0",
+        "#6B4EB5",
+        "#AE252B",
+        "#496298",
+        "#E87F2B",
+        "#C26769",
+        "#61B1D8",
+        "#AA7922",
+        "#A3A556",
+        "#386748",
+        "#369E2B",
+        "#563B1C",
+        "#E039A3",
+        "#B15FE7",
+        "#E8669B",
+        "#5FBC9C",
+        "#9C5B98",
+        "#752D42",
+        "#72771C",
+        "#A145B3",
+        "#454556",
+        "#A76E51",
+        "#96A7DB",
+        "#832F2C",
+        "#3E8F9B",
+        "#806A8F",
+        "#EA5D53",
+        "#E664DC",
+        "#BF99E0",
+        "#C39A59",
+        "#635515",
+        "#E49D33",
+        "#A9364D",
+        "#493E7A",
+        "#C16247",
+        "#732B68",
+        "#8370EA",
+        "#7DC332",
+        "#BC3014",
+        "#DE3555",
+        "#A8336D",
+        "#63809A",
+        "#869D2B",
+        "#2E6B19",
+        "#E269B9",
+        "#46C086",
+        "#AE728B",
+        "#86B4C1",
+        "#4B95D5",
+        "#46BB62",
+        "#E82FBE",
+        "#EC3C3A",
+        "#224A43",
+        "#9E6EC8",
+        "#E86677",
+        "#3B8479",
+        "#426FD6",
+        "#4E8049",
+        "#E92C8A",
+        "#80783D",
+        "#955E24",
+        "#A691BE",
+        "#6069B4",
+        "#589F73",
+        "#324C6F",
+        "#DA7DA7",
+        "#EE8E8B",
+        "#BA32A6",
+        "#5E4092",
+        "#A9B92D",
+        "#9B3D1A",
+        "#733E2C",
+        "#454A20",
+        "#C8A144",
+        "#D1632B",
+        "#975061",
+        "#5F8732",
+        "#69A531",
+        "#ED7A61",
+        "#254D21",
+        "#A1BA5E",
+        "#40CE47",
+        "#7A5066",
+        "#CA2C69",
+        "#735228"];
 
 })();

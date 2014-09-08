@@ -20,6 +20,7 @@ import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlSeeAlso;
 import javax.xml.bind.annotation.XmlType;
 import org.mousephenotype.dcc.entities.overviews.MeasuredValues;
+import org.mousephenotype.dcc.entities.overviews.MetadataGroupToValues;
 
 /**
  * Response package for measurements data returned by the 
@@ -32,6 +33,7 @@ import org.mousephenotype.dcc.entities.overviews.MeasuredValues;
 public class MeasurementsPack extends AbstractRestResponse<MeasuredValues> {
     private final int QC_DONE = 0;    
     private int qcStatus = QC_DONE;
+    private List<MetadataGroupToValues> metadataGroups;
 
     public int getQcStatus() {
         return qcStatus;
@@ -39,6 +41,14 @@ public class MeasurementsPack extends AbstractRestResponse<MeasuredValues> {
 
     public void setQcStatus(int qcStatus) {
         this.qcStatus = qcStatus;
+    }
+
+    public List<MetadataGroupToValues> getMetadataGroups() {
+        return metadataGroups;
+    }
+
+    public void setMetadataGroups(List<MetadataGroupToValues> metadataGroups) {
+        this.metadataGroups = metadataGroups;
     }
     
     @Override

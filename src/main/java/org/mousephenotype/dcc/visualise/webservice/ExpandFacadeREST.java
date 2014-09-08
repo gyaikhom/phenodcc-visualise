@@ -36,7 +36,7 @@ import javax.ws.rs.core.MediaType;
 @Path("expand")
 public class ExpandFacadeREST extends AbstractFacade<String> {
 
-    private final String MPTERM_REGEX = "MP:[0-9]*";
+    private final String MPTERM_REGEX = "M[PA]:[0-9]*";
     private final String PARAM_REGEX = "[A-Z]*_[A-Z]*_[0-9]*_[0-9]*";
     private final List<Integer> genotypeIds = new ArrayList<>();
     private final List<String> parameters = new ArrayList<>();
@@ -104,7 +104,7 @@ public class ExpandFacadeREST extends AbstractFacade<String> {
             return null;
         }
         TypedQuery<String> q = em.createQuery(
-                "select distinct q.parameterKey from Parameter q, Procedure p, ProcedureHasParameters php, ProcedureHasSuperType phs, Annotation a where q.parameterId = php.parameterId.parameterId and p.procedureId = php.procedureId.procedureId and p.procedureId = phs.procedureId and phs.type in :procedureTypes and q.parameterKey = a.parameterId and a.genotypeId in :genotypeIds and q.isDerived = 0 and q.isMedia = 0 and q.isAnnotation = 1", String.class);
+                "select distinct q.parameterKey from Parameter q, Procedure p, ProcedureHasParameters php, ProcedureHasSuperType phs, Annotation a where q.parameterId = php.parameterId.parameterId and p.procedureId = php.procedureId.procedureId and p.procedureId = phs.procedureId and phs.type in :procedureTypes and q.parameterKey = a.parameterId and a.genotypeId in :genotypeIds and (q.type not like '%media%' and q.type not like '%Media%') and q.isAnnotation = 1", String.class);
         q.setParameter("genotypeIds", genotypeIds);
         q.setParameter("procedureTypes", procedureTypes);
         return q.getResultList();

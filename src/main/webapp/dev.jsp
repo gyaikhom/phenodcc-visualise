@@ -24,6 +24,7 @@ limitations under the License.
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <meta http-equiv="X-UA-Compatible" content="chrome=1" />
         <link href='https://fonts.googleapis.com/css?family=Source+Sans+Pro:200,400,600|Roboto:400,100,300,700' rel='stylesheet' type='text/css'>
+        <link rel="stylesheet" type="text/css" href="/imageviewer/css/imageviewer.css">
         <link rel="stylesheet" type="text/css" href="css/visualise.css">
     </head>
     <body>
@@ -49,6 +50,7 @@ limitations under the License.
         </script>
 
         <script type="text/javascript" src="js/d3.v3.min.js"></script>
+        <script type="text/javascript" src="/imageviewer/js/imageviewer.js"></script>
         <script type="text/javascript" src="js/visualise.js"></script>
 
         <script>

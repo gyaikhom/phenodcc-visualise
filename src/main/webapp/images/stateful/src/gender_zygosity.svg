@@ -35,7 +35,7 @@
      showgrid="false"
      inkscape:window-width="1600"
      inkscape:window-height="1151"
-     inkscape:window-x="1600"
+     inkscape:window-x="0"
      inkscape:window-y="0"
      inkscape:window-maximized="1" />
   <metadata
@@ -530,5 +530,20 @@
          x="718.38794"
          y="1499.9165"
          style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:Ubuntu;-inkscape-font-specification:Ubuntu Bold">All</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:40px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Sans"
+       x="756.9162"
+       y="1590.9413"
+       id="text4037-2-4-2"
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/stateful/zygosity_all.png"
+       inkscape:export-xdpi="28.09306"
+       inkscape:export-ydpi="28.09306"><tspan
+         sodipodi:role="line"
+         id="tspan4039-5-6-6"
+         x="756.9162"
+         y="1590.9413"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:Ubuntu;-inkscape-font-specification:Ubuntu Bold">Zyg</tspan></text>
   </g>
 </svg>

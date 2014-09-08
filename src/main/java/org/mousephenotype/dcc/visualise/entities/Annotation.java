@@ -37,7 +37,7 @@ import javax.xml.bind.annotation.XmlRootElement;
 @Table(name = "annotation", catalog = "phenodcc_annotations", schema = "")
 @XmlRootElement
 @NamedQueries({
-    @NamedQuery(name = "Annotation.findByGidParameterKey", query = "SELECT new org.mousephenotype.dcc.visualise.entities.AnnotationData(a.annotationId, a.pvalueDouble, a.effectSize, a.genotypeestimateSE, a.maleMutantN, a.maleBaslineN, a.femaleMutantN, a.femaleBaslineN, a.zygosity, a.success, a.yMP, a.yMP1) FROM Annotation a WHERE a.genotypeId = :genotypeId AND a.parameterId = :parameterKey")
+    @NamedQuery(name = "Annotation.findByGidParameterKey", query = "SELECT new org.mousephenotype.dcc.visualise.entities.AnnotationData(a.annotationId, a.pvalueDouble, a.effectSize, a.genotypeestimateSE, a.maleMutantN, a.maleBaslineN, a.femaleMutantN, a.femaleBaslineN, a.zygosity, a.success, a.yMP, a.yMP1, a.metadataGroup) FROM Annotation a WHERE a.genotypeId = :genotypeId AND a.parameterId = :parameterKey")
 })
 public class Annotation implements Serializable {
 
