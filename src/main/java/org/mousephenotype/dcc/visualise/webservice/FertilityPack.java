@@ -19,7 +19,7 @@ import java.util.List;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlSeeAlso;
 import javax.xml.bind.annotation.XmlType;
-import org.mousephenotype.dcc.visualise.entities.FertilityData;
+import org.mousephenotype.dcc.visualise.entities.KeyValueRecord;
 
 /**
  * Response package for fertility data returned by the 
@@ -27,13 +27,13 @@ import org.mousephenotype.dcc.visualise.entities.FertilityData;
  * 
  * @author Gagarine Yaikhom <g.yaikhom@har.mrc.ac.uk>
  */
-@XmlSeeAlso(FertilityData.class)
+@XmlSeeAlso(KeyValueRecord.class)
 @XmlType(propOrder = {"success", "total", "fertility"})
-public class FertilityPack extends AbstractRestResponse<FertilityData> {
+public class FertilityPack extends AbstractRestResponse<KeyValueRecord> {
 
     @Override
     @XmlElement(name = "fertility")
-    public List<FertilityData> getDataSet() {
+    public List<KeyValueRecord> getDataSet() {
         return super.getDataSet();
     }
 }

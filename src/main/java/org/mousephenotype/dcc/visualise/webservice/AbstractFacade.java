@@ -23,6 +23,7 @@ import javax.persistence.criteria.CriteriaQuery;
 import javax.persistence.criteria.Root;
 import javax.servlet.ServletContext;
 import javax.ws.rs.core.Context;
+import org.mousephenotype.dcc.visualise.persistence.MemcacheHandler;
 import org.mousephenotype.dcc.visualise.persistence.PersistenceManager;
 
 /**
@@ -41,8 +42,8 @@ public abstract class AbstractFacade<T> {
     }
 
     protected EntityManager getEntityManager() {
-        PersistenceManager pm =
-                (PersistenceManager) context.getAttribute("PersistenceManager");
+        PersistenceManager pm
+                = (PersistenceManager) context.getAttribute("PersistenceManager");
         EntityManagerFactory emf = pm.getEntityManagerFactory();
         emf.getCache().evictAll();
         return emf.createEntityManager();
@@ -114,5 +115,9 @@ public abstract class AbstractFacade<T> {
         Long returnValue = q.getSingleResult();
         em.close();
         return returnValue;
+    }
+
+    public MemcacheHandler getMemcacheHandler() {
+        return (MemcacheHandler) context.getAttribute("MemcacheHandler");
     }
 }

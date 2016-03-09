@@ -15,6 +15,7 @@
  */
 package org.mousephenotype.dcc.visualise.webservice;
 
+import org.mousephenotype.dcc.visualise.persistence.MemcacheHandler;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -64,6 +65,19 @@ public class GeneStrainFacadeREST extends AbstractFacade<GeneStrain> {
         return gids;
     }
 
+    List<GeneStrain> getAllGeneStrains() {
+        MemcacheHandler mh = getMemcacheHandler();
+        List<GeneStrain> genestrains = mh.getGeneStrains();
+        if (genestrains == null) {
+            EntityManager em = getEntityManager();
+            TypedQuery<GeneStrain> query = em.createNamedQuery("GeneStrain.all",
+                    GeneStrain.class);
+            genestrains = query.getResultList();
+            mh.setGeneStrains(genestrains);
+        }
+        return genestrains;
+    }
+
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     public GeneStrainPack search(
@@ -71,26 +85,30 @@ public class GeneStrainFacadeREST extends AbstractFacade<GeneStrain> {
             @QueryParam("g") String genotypeIds) {
         GeneStrainPack g = new GeneStrainPack();
         EntityManager em = getEntityManager();
-        TypedQuery<GeneStrain> query;
+        TypedQuery<GeneStrain> query = null;
+        List<GeneStrain> genestrains = null;
         if (queryString == null || queryString.isEmpty()) {
             if (genotypeIds != null && !genotypeIds.isEmpty()) {
                 List<Integer> gids = getGenotypeIds(genotypeIds);
                 if (gids.isEmpty()) {
-                    query = em.createNamedQuery("GeneStrain.all",
-                            GeneStrain.class);
+                    genestrains = getAllGeneStrains();
                 } else {
                     query = em.createNamedQuery("GeneStrain.selected",
                             GeneStrain.class);
                     query.setParameter("gids", gids);
                 }
             } else {
-                query = em.createNamedQuery("GeneStrain.all", GeneStrain.class);
+                genestrains = getAllGeneStrains();
             }
-            g.setDataSet(query.getResultList());
+            if (genestrains == null) {
+                if (query != null) {
+                    g.setDataSet(query.getResultList());
+                }
+            } else {
+                g.setDataSet(genestrains);
+            }
         } else {
-            query = em.createNamedQuery(
-                    "GeneStrain.search",
-                    GeneStrain.class);
+            query = em.createNamedQuery("GeneStrain.search", GeneStrain.class);
             query.setParameter("queryString", "%" + queryString + "%");
             g.setDataSet(query.getResultList());
         }

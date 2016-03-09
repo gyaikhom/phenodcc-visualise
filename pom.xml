@@ -4,7 +4,7 @@
 
     <groupId>org.mousephenotype.dcc.visualise</groupId>
     <artifactId>phenodcc-visualise</artifactId>
-    <version>1.2.1</version>
+    <version>1.4.13</version>
     <packaging>war</packaging>
     <name>phenodcc-visualise</name>
     <url>http://www.mousephenotype.org</url>
@@ -48,17 +48,17 @@
         <dependency>
             <groupId>org.mousephenotype.dcc.entities</groupId>
             <artifactId>phenodcc-entities-overviews</artifactId>
-            <version>1.6.1</version>
+            <version>1.6.4</version>
         </dependency>
         <dependency>
             <groupId>org.mousephenotype.dcc.entities</groupId>
             <artifactId>phenodcc-entities-impress</artifactId>
-            <version>4.1.1</version>
+            <version>4.1.5</version>
         </dependency>
         <dependency>
             <groupId>org.mousephenotype.dcc.entities</groupId>
             <artifactId>phenodcc-entities-qc</artifactId>
-            <version>2.5.2</version>
+            <version>2.6.3</version>
         </dependency>
         <dependency>
             <groupId>org.mousephenotype.dcc.entities</groupId>
@@ -78,12 +78,23 @@
         <dependency>
             <groupId>commons-collections</groupId>
             <artifactId>commons-collections</artifactId>
-            <version>3.2.1</version>
+            <version>3.2.2</version>
         </dependency>
         <dependency>
             <groupId>org.eclipse.persistence</groupId>
             <artifactId>eclipselink</artifactId>
-            <version>2.5.1</version>
+            <version>2.6.0</version>
+        </dependency>
+        <dependency>
+            <groupId>net.spy</groupId>
+            <artifactId>spymemcached</artifactId>
+            <version>2.11.4</version>
+        </dependency>
+        <dependency>
+            <groupId>joda-time</groupId>
+            <artifactId>joda-time</artifactId>
+            <version>2.1</version>
+            <type>jar</type>
         </dependency>
         <dependency>
             <groupId>javax</groupId>
@@ -175,6 +186,33 @@
                 <version>2.6</version>
                 <configuration>
                     <encoding>UTF-8</encoding>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>com.google.code.maven-replacer-plugin</groupId>
+                <artifactId>maven-replacer-plugin</artifactId>
+                <version>1.4.1</version>
+                <executions>                
+                    <execution>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>replace</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <includes>
+                        <include>**/*.java</include>
+                    </includes>
+                    <basedir>tsrc/main/java</basedir>
+                    <outputBasedir>src/main</outputBasedir>
+                    <outputDir>java</outputDir>
+                    <replacements>
+                        <replacement>
+                            <token>DEPLOYMENT_PREFIX</token>
+                            <value>${deploymenttarget}</value>                        
+                        </replacement>
+                    </replacements>
                 </configuration>
             </plugin>
         </plugins>

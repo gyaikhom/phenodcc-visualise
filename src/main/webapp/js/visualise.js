@@ -1,5 +1,5 @@
 /* 
- * Copyright 2013 Medical Research Council Harwell.
+ * Copyright 2013-2015 Medical Research Council Harwell.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
+/* global d3 */
+
 /**
  * 
  * Written by: Gagarine Yaikhom (g.yaikhom@har.mrc.ac.uk)
  */
-
-(function() {
+(function () {
     /* this is the global variable where we expose the public interfaces */
     if (typeof dcc === 'undefined')
         dcc = {};
@@ -30,9 +31,6 @@
     /* format for conversion between datetime */
     dcc.dateTimeFormat = d3.time.format('%Y-%m-%d %H:%M:%S');
     dcc.dateFormat = d3.time.format('%e %B %Y, %A');
-
-    /* object that stores all of the visualisations */
-    dcc.viz = {};
 
     /* object that handles image visualisation */
     dcc.imageViewer = null;
@@ -55,7 +53,8 @@
         fullConfigHasBeenLoaded = false, /* has the full config been loaded */
         dateConfigDataExpires = null, /* last time configuration data was loaded */
         MILLISECONDS_TO_EXPIRATION = 7200000, /* 2 hours */
-
+        /* reference to body */
+        body = d3.select('body'),
         /* comparative visualisation allows comparison between multiple genes
          * for a selection of parameters. The following list all of the
          * centres, genes, procedures and parameters that are available for
@@ -71,32 +70,30 @@
         /* maps parameter identifier to parameter key */
         parameterIdToKeyMap = {},
         /* map and count of selected genes and parameters */
-        genesMap = {}, genesCount = 0,
-        parametersMap = {}, parametersCount = 0,
-        /* map to retrieve centre details from centre id */
-        centresMap,
-        /* map to retrieve procedure details from procedure key */
-        proceduresMap,
+        selectedGenesMap = {}, selectedGenesCount = 0,
+        selectedParametersMap = {}, selectedParametersCount = 0,
         /* from the list above, we select genes and parameters that are use by
          * the comparative visualiation mode. These selections are maintained
          * as a doubly-linked list. */
         geneList, parameterList,
+        /* map to retrieve centre details from centre id */
+        centresMap,
+        /* map to retrieve procedure details from procedure key */
+        procedureKeyToProcedureDetailsMap = {},
+        /* colour dictionary for procedure cell */
+        procedureColour = {},
+        /* associated media parameter for gene and measurements */
+        associatedMedia = {},
         /* list can be displayed as a simple list or a detailed list */
         isSimpleList = false,
-        /* we allow filtering of displayed list */
-        filter = {
-            'centre': null, /* filter genes by centre */
-            'procedure': null, /* filter parameters by procedure */
-            'text': null /* filter genes and parameters by free text */
-        },
-    /* some constants that allows configuration of the tool */
-    FLOAT_DISPLAY_PRECISION = 5,
+        /* some constants that allows configuration of the tool */
+        FLOAT_DISPLAY_PRECISION = 5,
         PARAMETER_KEY_FIELD = 'e',
         PARAMETER_NAME_FIELD = 'n',
         PROCEDURE_ID_FIELD = 'p',
-        PARAMETER_ID_FIELD = 'id',
         STR_IMAGE = 'image',
-        GENE_KEY = 'Id',
+        /* hyphenated concatenation of genotype, strain and centre ids */
+        GENE_KEY = 'gsc',
         /* property names for sorting genes list */
         SORT_BY_GENE_ALLELE = 'alleleName',
         SORT_BY_GENE_STRAIN = 'strain',
@@ -106,66 +103,14 @@
         SORT_BY_PARAMETER_NAME = 'n',
         SORT_BY_PROCEDURE_NAME = 'pn',
         /* default property name to use when sorting */
-        sorter = {
-            'genes': SORT_BY_GENE_ALLELE,
-            'parameters': SORT_BY_PARAMETER_NAME,
-            'geneList': SORT_BY_GENE_ALLELE,
-            'parameterList': SORT_BY_PARAMETER_NAME
-        },
-    /* regular expression for retrieving procedure key */
-    REGEX_PROC_KEY = /[A-Z]*_([A-Z]*)_[0-9]*_[0-9]*/,
+        sortedBy,
+        /* we allow filtering of displayed list */
+        filterBy,
+        /* regular expression for retrieving procedure key */
+        REGEX_PROC_KEY = /[A-Z]*_([A-Z]*)_[0-9]*_[0-9]*/,
         REGEX_ALLELE = /[^<>]*<sup>(.*)<\/sup>/,
         /* list of items on the navigator panel */
-        navigatorItems = [
-            {
-                'title': 'browse',
-                'id': 'browse-list',
-                'items': [
-                    {
-                        'label': 'Centre',
-                        'id': 'centre',
-                        'hint': 'Browse genes by phenotyping centre',
-                        'fn': showCentres
-                    },
-                    {
-                        'label': 'Gene',
-                        'id': 'gene',
-                        'hint': 'Browse or search all of the available genes',
-                        'fn': showGenes
-                    },
-                    {
-                        'label': 'Procedure',
-                        'id': 'procedure',
-                        'hint': 'Browse parameters associated with a procedure',
-                        'fn': showProcedures
-                    },
-                    {
-                        'label': 'Parameter',
-                        'id': 'parameter',
-                        'hint': 'Browse or search all of the parameters',
-                        'fn': showParameters
-                    }
-                ]
-            },
-            {
-                'title': 'comparison list',
-                'id': 'comparison-list',
-                'items': [
-                    {
-                        'label': 'Genes',
-                        'id': 'genes-basket',
-                        'hint': 'View and edit the current selection of genes',
-                        'fn': showSelectedGenes
-                    },
-                    {
-                        'label': 'Parameters',
-                        'id': 'parameters-basket',
-                        'hint': 'View and edit the current selection of parameters',
-                        'fn': showSelectedParameters
-                    }
-                ]
-            }
-        ],
+        navigatorItems,
         isDraggingInProgress = false, /* true when list items are being dragged */
         draggedKey = null, /* uniquely identifies the item being dragged */
         dragDropIndex = -1, /* where to drop the item to finish dragging */
@@ -174,73 +119,63 @@
         DRAG_MARKER = 'drag-drop-marker', /* how highlighting drop suggestion */
 
         /* All of the visualisations are displayed using a two dimensional
-         * grid where the columns represent the selected genes, whereas, the rows
+         * grid where the columns represent the selected genes, and the rows
          * represent the selected parameters. This is referred to as the
          * visualiation cluster, and is managed under the following DOM node */
         visualisationCluster = null,
-        /* All of the visualisations are interactive. The user has the facility to
-         * enable or disable several features (e.g., show/hide statistics). All of
-         * these settings are controlled using a bitmap. The following lists all of
-         * the possible settings that are available through the controls panel. */
-        controlOptions = {
-            'mean': 0x1, /* show arithmetic mean */
-            'median': 0x2, /* show median */
-            'max': 0x4, /* show maximum values */
-            'min': 0x8, /* show minimum values */
-            'quartile': 0x10, /* show first and third quartiles */
-            'female': 0x20, /* include female specimens */
-            'male': 0x40, /* include male specimens */
-            'point': 0x80, /* show data points */
-            'polyline': 0x100, /* show polylines */
-            'errorbar': 0x200, /* show error bar (by default standard deviation) */
-            'crosshair': 0x400, /* show crosshair */
-            'wildtype': 0x800, /* include wild type specimens */
-            'whisker': 0x1000, /* show box and whisker */
-            'whisker_iqr': 0x2000, /* extend whiskers to 1.5 IQR */
-            'infobar': 0x4000, /* show information about the visualisation */
-            'statistics': 0x8000, /* show descriptive statistics */
-            'swarm': 0x10000, /* show beeswarm plot */
-            'hom': 0x20000, /* include homozygotes */
-            'het': 0x40000, /* include heterozygotes */
-            'hem': 0x80000, /* include hemizygotes */
-            'std_err': 0x100000 /* show standard error for error bars */
-        },
-    DEFAULT_VISUALISATION_SETTING = 113121,
-        /* when a user hovers over a data point, further information concerning
-         * the data point is displayed using a popup box. The following implements
-         * the popup box. We use one popup box that is shared by all of the
-         * visualisations. */
-        informationBox, /* object that points to the information box DOM node */
+        /* All of the visualisations are interactive. The user has the facility
+         * to enable or disable several features (e.g., show/hide statistics).
+         * All of these settings are controlled using a bitmap. The following
+         * lists all of the possible settings that are available through the
+         * controls panel. */
+        controlOptions,
+        DEFAULT_VISUALISATION_SETTING = 3144161,
+        /* When a user hovers over a data point, further information concerning
+         * the data point is displayed using a popup box. The following
+         * implements the popup box. We use one popup box that is shared by
+         * all of the visualisations. */
+        informationBox, /* object that points to the information box */
         informationBoxOffset = 15, /* pixel displacement from mouse pointer */
         informationBoxWidth,
         informationBoxHeight,
-        /* the width of a visualisation determines the dimensions of the dimensions
-         * of all the visualisations. This values changes according to the scale
-         * (S - Small, M - Medium, L - Large, XL - Extra large) selected in the
-         * controls panel. From this width, the height is calculated to match the
-         * required aspect ratio. */
-        visualisationWidth, /* in pixels */
+        /* available zooming options */
+        ZOOM_SMALL = 600,
+        ZOOM_MEDIUM = 800,
+        ZOOM_LARGE = 1000,
+        ZOOM_XLARGE = 1200,
+        /* The width of a visualisation determines the dimensions of all the
+         * visualisations. This values changes according to the scale:
+         *     S - Small
+         *     M - Medium
+         *     L - Large
+         *    XL - Extra large
+         * 
+         * selectable from the controls panel. From this width, the height is
+         * calculated to match the required aspect ratio. */
+        visualisationWidth = ZOOM_SMALL, /* in pixels */
         VISUALISATION_ASPECT_RATIO = 1.77,
         /* In addition to the visualiation, users have the option to display
          * the related annotations. The following contains the annotation map */
         annotations = {},
-        /* when displaying annotations, we extend the visualisation while keeping
-         * the visualisation width constant. */
-        heightExtension = 0, /* current extension in addition to aspect height */
+        /* When displaying annotations, we extend the visualisation while
+         * keeping the visualisation width constant. */
+        heightExtension = 0, /* extension in addition to aspect height */
         HEIGHT_EXTENSION_VALUE = 200, /* if extended, how far */
 
-        /* if animataing interfaces, how long should it last */
+        /* If animating interfaces, how long should it last */
         ANIMATION_DURATION = 200,
-        /* how long to delay before an interaction, say scrolling, takes effect */
+        /* How long to delay event action, say scrolling, takes effect */
         EVENT_THROTTLE_DELAY = 200,
-        /* the annotations panel displays ontology terms for annotations with
-         * statistical p-values that are above a certain threshold. The following
-         * is the default threshold used. This can be changed dynamically by
-         * passing a value using URL query parameter named 'pt'. */
+        /* Throttle activation of search box keyup event handler */
+        SEARCH_THROTTLE_DELAY = 200,
+        /* The annotations panel displays ontology terms for annotations with
+         * statistical p-values that are above a certain threshold. The
+         * following is the default threshold used. This can be changed
+         * dynamically by passing a value using URL query name 'pt'. */
         DEFAULT_PVALUE_THRESHOLD = 0.0001,
         /* Using the controls panel, a user can filter out data points from the
-         * visualisation based on their zygosity. The following list the possible
-         * filters available */
+         * visualisation based on their zygosity. The following list the
+         * possible filters available */
         ZYGOSITY_ALL = 0, /* display all */
         ZYGOSITY_HET = 1, /* only heterozygous */
         ZYGOSITY_HOM = 2, /* only homozygous */
@@ -250,74 +185,302 @@
         /* When a visualisation becomes visible, an AJAX call retrieves the
          * required measurements. After measurements have been retrieved, all of
          * the statistical calculations are carried out. These calculated values
-         * are then cached for future. The following contains the cached results,
-         * which contains measurements and statistics for het, hom, hem and all
-         * respectively. */
+         * are then cached for future use. The following contains the cached
+         * results, which contains measurements and statistics for het, hom,
+         * hem and all respectively. */
         measurementsSet = [{}, {}, {}, {}],
-        /* for every visualisation, we also display its QC status. The following
-         * is a map of QC statuses */
+        /* For every visualisation, we also display its QC status. The following
+         * is a map of QC statuses for gene-parameter combinations*/
         qcstatus = {},
-        /* for every visualisation, we provide the facility to display
+        /* keeps record of when measurements were last updated */
+        lastUpdate = {},
+        /* For every visualisation, we provide the facility to display
          * measurements that belongs to a specific meta-data group. We store in
          * the following all of the unique meta-data group values. */
         metadataGroups = {},
+        /* we detect touch devises to allow touch-based interactions */
         isSupportedTouchDevice = navigator.userAgent.match(/Android|iPhone|iPad/i),
         /* touch events */
         TOUCH_START = 'touchstart',
-        /* available zooming options */
-        ZOOM_SMALL = 600,
-        ZOOM_MEDIUM = 800,
-        ZOOM_LARGE = 1000,
-        ZOOM_XLARGE = 1200,
         /* radius of data points in pixels at different zoom levels */
-        WILDTYPE_DATAPOINT_RADIUS_SCALE = {
-            '600': 1.25,
-            '800': 1.7,
-            '1000': 2.0,
-            '1200': 2.3
-        },
-    wildtypeDatapointRadius,
-        MUTANT_DATAPOINT_RADIUS_SCALE = {
-            '600': 1.5,
-            '800': 2.3,
-            '1000': 2.7,
-            '1200': 3
-        },
-    mutantDatapointRadius,
+        WILDTYPE_DATAPOINT_RADIUS_SCALE,
+        wildtypeDatapointRadius,
+        MUTANT_DATAPOINT_RADIUS_SCALE,
+        mutantDatapointRadius,
         /* radius of data points for statistics display */
         STAT_DATAPOINT_RADIUS = 3,
         highlightedSpecimen = -1, /* current highlighted specimen */
-        /* swarm data points are not allowed to go further than
-         * this bound relative to the principal swarm axis on both sides */
+        /* Beeswarm data points are not allowed to go outside this bound
+         * on both sides relative to the principal swarm axis */
         SWARM_BOUND = 70,
-
-        /* colours used to display segmented bar charts and pie charts */
-        segmentGradient = [
-            '#ff0000', '#1f77b4', '#aec7e8', '#ff7f0e', '#ffbb78', '#2ca02c',
-            '#98df8a', '#d62728', '#ff9896', '#9467bd', '#c5b0d5', '#8c564b',
-            '#c49c94', '#e377c2', '#f7b6d2', '#7f7f7f', '#c7c7c7', '#bcbd22',
-            '#dbdb8d', '#17becf', '#9edae5'],
-        /* colours used to display pie charts */
-        pieColours = [
-            '#054259', '#086689', '#0a8ab9', '#0daee9'
-        ],
-        /* reference to body */
-        body = d3.select('body'),
-        /* we use the options aray for assigning colour to category legends.
-         * The following variable stores the latest colour index. The colour
+        /* We use the options array for assigning colour to category legends.
+         * The following map stores the latest colour index. The colour
          * index is derived from parameter options (see processParameters). */
         categoryColourIndex,
-        /* Details panel works in three modes. */
+        /* we keep a count of the number of categories. First one for
+         * highlighted data-point/column category, which appears in all
+         * categorical displays. */
+        numCategories = 1,
+        /* details panel works in three modes */
         detailsPanel = null,
         CENTRE_DETAILS = 1,
         PROCEDURES_AND_PARAMS_WITH_DATA = 2,
         PROCEDURE_DETAILS = 3,
-        procedureColour = {} /* background colours for procedure icons */
-    ;
+        /* minimum screen width required for displaying procedure or parameter
+         * tails on the procedure/parameter list */
+        MIN_SCREEN_WIDTH_FOR_DETAILS = 1440,
+        procedureColour = {}, /* background colours for procedure icons */
+        /* We display an annotations heatmap. This is an independent web-app
+         * which is embedded inside Phenoview. The web-app comes from the
+         * phenodcc-heatmap project that is hosted on the same server as
+         * Phenoview. The following contains a heatmap instance. */
+        heatmap = null,
+        /* Stores the state before visualisation preview. When user clicks
+         * on a heatmap cell, they are taken to the visualisation preview.
+         * We use the following to remember where to go back. Previews are
+         * available from the configuration mode, hence, we need to remember
+         * the state of the configuration mode. */
+        stateToReturnTo = 'heatmap',
+        /* When user clicks on a gene from the available genes list, we want
+         * to remember which gene the user was looking at so that we can
+         * display the corresponding visualisation preview upon return. */
+        geneShowingDetails = null,
+        /* When we are previewing visualisations from centre gene list, we
+         * wish to return to the gene list for the selected centre. In the
+         * following, we remember which centre the user was looking at when
+         * the preview was launched. Within the centre, we will then highlight
+         * the gene using the previous state variable. */
+        centreShowingDetails = null,
+        /* finally, the procedure the user was looking at */
+        procedureShowingDetails = null,
+        /* following are used for list paging when there are too many rows */
+        LIST_PAGE_SIZE = 100,
+        listCurrentPage = 0,
+        listLastPage = 0,
+        /* used for handling small screen */
+        SMALL_SCREEN_WIDTH = 900,
+        /* to enable or disable display of information box */
+        informationBoxIsDisabled = false
+        ;
 
-    dcc.pvalueThreshold = DEFAULT_PVALUE_THRESHOLD;
+    filterBy = {
+        'centre': null, /* filter genes by centre */
+        'procedure': null, /* filter parameters by procedure */
+        'text': null /* filter genes and parameters by free text */
+    };
+
+    sortedBy = {
+        'genes': SORT_BY_GENE_ALLELE,
+        'parameters': SORT_BY_PARAMETER_NAME,
+        'geneList': SORT_BY_GENE_ALLELE,
+        'parameterList': SORT_BY_PARAMETER_NAME
+    };
+
+    categoryColourIndex = {
+        'Highlighted specimen': 0
+    };
+
+
+    MUTANT_DATAPOINT_RADIUS_SCALE = {
+        '600': 1.5,
+        '800': 2.3,
+        '1000': 2.7,
+        '1200': 3
+    };
+
+    WILDTYPE_DATAPOINT_RADIUS_SCALE = {
+        '600': 1.25,
+        '800': 1.7,
+        '1000': 2.0,
+        '1200': 2.3
+    };
+
+    controlOptions = {
+        'mean': 0x1, /* show arithmetic mean */
+        'median': 1 << 1, /* show median */
+        'max': 1 << 2, /* show maximum values */
+        'min': 1 << 3, /* show minimum values */
+        'quartile': 1 << 4, /* show first and third quartiles */
+        'female': 1 << 5, /* include female specimens */
+        'male': 1 << 6, /* include male specimens */
+        'point': 1 << 7, /* show data points */
+        'polyline': 1 << 8, /* show polylines */
+        'errorbar': 1 << 9, /* show error bar (by default standard deviation) */
+        'crosshair': 1 << 10, /* show crosshair */
+        'wildtype': 1 << 11, /* include wild type specimens */
+        'whisker': 1 << 12, /* show box and whisker */
+        'whisker_iqr': 1 << 13, /* extend whiskers to 1.5 IQR */
+        'infobar': 1 << 14, /* show information about the visualisation */
+        'statistics': 1 << 15, /* show descriptive statistics */
+        'swarm': 1 << 16, /* show beeswarm plot */
+        'hom': 1 << 17, /* include homozygotes */
+        'het': 1 << 18, /* include heterozygotes */
+        'hem': 1 << 19, /* include hemizygotes */
+        'std_err': 1 << 20, /* show standard error for error bars */
+        'overview': 1 << 21, /* show overview visualisations */
+        'shapes': 1 << 22 /* use shapes to display data points */
+    };
+
+    navigatorItems = [
+        {
+            'title': 'browse available',
+            'id': 'browse-list',
+            'items': [
+                {
+                    'label': 'Heatmap',
+                    'id': 'heatmap',
+                    'hint': 'Browse by statistical analysis results',
+                    'fn': function (parent) {
+                        resetStateBeforePreview();
+                        showHeatmap(parent);
+                    }
+                },
+                {
+                    'label': 'Centre',
+                    'id': 'centre',
+                    'hint': 'Browse genes by phenotyping centre',
+                    'fn': function (parent) {
+                        resetStateBeforePreview();
+                        listCurrentPage = 0;
+                        showCentres(parent);
+                    }
+                },
+                {
+                    'label': 'Gene',
+                    'id': 'gene',
+                    'hint': 'Browse or search all of the available genes',
+                    'fn': function (parent) {
+                        resetStateBeforePreview();
+                        showGenes(parent);
+                    }
+                },
+                {
+                    'label': 'Procedure',
+                    'id': 'procedure',
+                    'hint': 'Browse parameters associated with a procedure',
+                    'fn': function (parent) {
+                        resetStateBeforePreview();
+                        listCurrentPage = 0;
+                        showProcedures(parent);
+                    }
+                },
+                {
+                    'label': 'Parameter',
+                    'id': 'parameter',
+                    'hint': 'Browse or search all of the parameters',
+                    'fn': function (parent) {
+                        resetStateBeforePreview();
+                        listCurrentPage = 0;
+                        showParameters(parent);
+                    }
+                }
+            ]
+        },
+        {
+            'title': 'current selections',
+            'id': 'comparison-list',
+            'items': [
+                {
+                    'label': 'Genes',
+                    'id': 'genes-basket',
+                    'hint': 'View and edit the current selection of genes',
+                    'fn': function (parent) {
+                        resetStateBeforePreview();
+                        listCurrentPage = 0;
+                        showSelectedGenes(parent);
+                    }
+                },
+                {
+                    'label': 'Parameters',
+                    'id': 'parameters-basket',
+                    'hint': 'View and edit the current selection of parameters',
+                    'fn': function (parent) {
+                        resetStateBeforePreview();
+                        listCurrentPage = 0;
+                        showSelectedParameters(parent);
+                    }
+                }
+            ]
+        }
+    ];
+
     dcc.visualisationControl = DEFAULT_VISUALISATION_SETTING;
 
+    /**
+     * We use cookies for remembering user settings, what they were looking at
+     * etc. between sessions.
+     * 
+     * @param {type} cookieName Name of the cookie.
+     * @param {type} cookieValue Value to store.
+     * @param {type} daysToExpiry When should the cookied expire (in days).
+     */
+    function setCookie(cookieName, cookieValue, daysToExpiry) {
+        var date = new Date();
+        date.setTime(date.getTime() + (daysToExpiry * 24 * 60 * 60 * 1000));
+        var expires = "expires=" + date.toUTCString();
+        document.cookie = cookieName + "=" + (cookieValue ? cookieValue : '') +
+            "; " + expires;
+    }
+
+    /**
+     * Retrieves name/value pairs stored during the last session.
+     * 
+     * @param {type} cookieName Name of the cookie.
+     * @returns {Object} Cookie value if it exists; otherwise, undefined.
+     */
+    function getCookie(cookieName) {
+        var name = cookieName + "=";
+        var cookiesArray = document.cookie.split(';');
+        for (var i = 0; i < cookiesArray.length; i++) {
+            var cookie = cookiesArray[i];
+            while (cookie.charAt(0) === ' ')
+                cookie = cookie.substring(1);
+            if (cookie.indexOf(name) === 0)
+                return cookie.substring(name.length, cookie.length);
+        }
+        return undefined;
+    }
+
+    /**
+     * Sometimes we wish to reset the web-app by forgetting everything the
+     * browser remembers from the last session. The following resets the web-app
+     * to the default setting, and forgets all that is remembered.
+     */
+    function resetState() {
+        stateToReturnTo = 'heatmap';
+        centreShowingDetails = null;
+        setCookie('centre', centreShowingDetails);
+        geneShowingDetails = null;
+        setCookie('gene', geneShowingDetails);
+        procedureShowingDetails = null;
+        setCookie('procedure', procedureShowingDetails);
+        setCookie('gene_searched', undefined);
+        setCookie('param_searched', undefined);
+        setCookie('only_significant', undefined);
+        setCookie('selected_centres', undefined);
+        dcc.pvalueThreshold = DEFAULT_PVALUE_THRESHOLD;
+        setCookie('pvalue_threshold', dcc.pvalueThreshold);
+    }
+
+    /**
+     * This prevents the preview from interfering with the normal visualisation.
+     */
+    function resetStateBeforePreview() {
+        d3.selectAll('#navigator li').classed('navigator-selected', false);
+        geneShowingDetails = centreShowingDetails =
+            procedureShowingDetails = null;
+        setCookie('centre', centreShowingDetails);
+        setCookie('gene', geneShowingDetails);
+        setCookie('procedure', procedureShowingDetails);
+    }
+
+    /**
+     * Saves current gene and parameter selections for future sessions.
+     */
+    function saveSelectionAsCookies() {
+        setCookie("genes", getGeneList());
+        setCookie("parameters", getParameterList());
+    }
 
     /**
      * Removes all white spaces from beginning and end. This extends the
@@ -328,14 +491,14 @@
      *
      * http://blog.stevenlevithan.com/archives/faster-trim-javascript
      */
-    String.prototype.trim = function() {
+    String.prototype.trim = function () {
         return this.replace(/^\s\s*/, '').replace(/\s\s*$/, '');
     };
 
     /**
      * Makes the first character of the string uppercase.
      */
-    String.prototype.icap = function() {
+    String.prototype.icap = function () {
         return this.substr(0, 1).toUpperCase() + this.substr(1);
     };
 
@@ -352,7 +515,7 @@
      *
      * @return {String} A substring with the remaining characters.
      */
-    String.prototype.discard = function(nchars) {
+    String.prototype.discard = function (nchars) {
         var length = this.length - nchars;
         return nchars < 0 ? this.substr(0, length)
             : this.substr(nchars, length);
@@ -367,7 +530,7 @@
      * @returns {Function} Comparator function.
      */
     function getComparator(p, q) {
-        return function(a, b) {
+        return function (a, b) {
             if (a[p] === b[p]) {
                 if (q === undefined)
                     return 0;
@@ -425,6 +588,8 @@
      */
     function preventEventBubbling() {
         var event = d3.event;
+        if (!event)
+            return;
         if (event.preventDefault)
             event.preventDefault();
         if (event.stopPropagation)
@@ -454,7 +619,7 @@
     function throttle(method, delay, thisArg) {
         clearTimeout(method.throttleTimeout);
         method.throttleTimeout =
-            setTimeout(function() {
+            setTimeout(function () {
                 method.apply(thisArg);
             }, delay);
     }
@@ -567,7 +732,7 @@
             node.transition()
                 .duration(duration === undefined ? 0 : duration)
                 .style('opacity', 0)
-                .each('end', function() {
+                .each('end', function () {
                     node.remove();
                 });
     }
@@ -591,6 +756,8 @@
     function height(node, value) {
         if (typeof node === 'string')
             node = d3.select(node);
+        if (node.empty())
+            return undefined;
         if (value !== undefined)
             node.style('height', value + 'px');
         return node.node().getBoundingClientRect().height;
@@ -668,16 +835,6 @@
     }
 
     /**
-     * Set the progress notification to loading.
-     * 
-     * @param {Object} node DOM node that will contain the content to be loaded.
-     */
-    function loading(node) {
-        clear(node);
-        addDiv(node, null, 'loading');
-    }
-
-    /**
      * Updates the progress notification by changing the current processing
      * phase and percentage completion.
      * 
@@ -692,7 +849,7 @@
     /**
      * Sets up the web application loading notification.
      * 
-     * @param {Object} node DOM node that will contain the content to be loaded.
+     * @param {Object} node DOM node that will contain the content to load.
      */
     function loadingApp(node) {
         clear(node);
@@ -717,7 +874,7 @@
     }
 
     /* Display credits information */
-    dcc.credits = function() {
+    dcc.credits = function () {
         alert("P H E N O V I E W\n" +
             "(Version " + dcc.version + ")\n\n" +
             "The International Mouse Phenotyping Consortium\n" +
@@ -880,7 +1037,7 @@
      * Hides the information box pop-up.
      */
     function hideInformationBox() {
-        informationBox.classed('hidden', true);
+        informationBox.style('display', 'none');
     }
 
     /**
@@ -888,17 +1045,21 @@
      * initialised to be hidden when the web app starts.
      */
     function createInformationBox() {
-        informationBox = addDiv(body, 'datapoint-infobox');
-        informationBox.classed('hidden', true)
-            .on('mouseover',
-                function() {
-                    preventEventBubbling();
-                    hideInformationBox();
-                });
-        informationBoxWidth =
-            getNodeDimension(informationBox, 'width') + informationBoxOffset;
-        informationBoxHeight =
-            getNodeDimension(informationBox, 'height') + informationBoxOffset;
+        if (informationBox === undefined) {
+            informationBox = addDiv(body, 'datapoint-infobox');
+            informationBox.style('display', 'none')
+                .on('mouseover',
+                    function () {
+                        preventEventBubbling();
+                        hideInformationBox();
+                    });
+            informationBoxWidth =
+                getNodeDimension(informationBox, 'width')
+                + informationBoxOffset;
+            informationBoxHeight =
+                getNodeDimension(informationBox, 'height')
+                + informationBoxOffset;
+        }
     }
 
     /**
@@ -908,6 +1069,14 @@
      * @param {Object} bmc Bounded mouse coordinates and bounding region.
      */
     function relocateInformationBox(bmc) {
+        if (informationBoxIsDisabled) {
+            informationBox.style('display', 'none');
+            return;
+        } else {
+            informationBox.style('display', 'block');
+        }
+
+
         var x = bmc.boundedCoordX, y = bmc.boundedCoordY,
             hx = bmc.rangeHighX, ly = bmc.rangeLowY;
 
@@ -928,32 +1097,7 @@
         /* move the information box to new position */
         informationBox
             .style('left', (x + bmc.originX) + 'px')
-            .style('top', (y + bmc.originY) + 'px')
-            .classed('hidden', false);
-    }
-
-    /**
-     * Returns a sorted array by merging the contents of the supplied
-     * sorted arrays. <i>The supplied arrays are left unmodified.</i>
-     *
-     * @param {Object[]} f First sorted array.
-     * @param {Object[]} s Second sorted array.
-     * @param {Function} comparator A comparator function that takes two values
-     *        <b>a</b> and <b>b</b> and returns <b>0</b> if <b>a = b</b>,
-     *        <b>1</b> if <b>a > b</b>, or <b>-1</b> otherwise.
-     *
-     * @return {Object[]} The merged sorted array.
-     */
-    function mergeSortedArrays(f, s, comparator) {
-        var sortedArray = [], i, j; /* the merged array and temp variables */
-        i = j = 0;
-        while (i < f.length && j < s.length)
-            sortedArray.push(comparator(f[i], s[j]) === -1 ? f[i++] : s[j++]);
-        while (i < f.length)
-            s.push(f[i++]);
-        while (j < s.length)
-            s.push(s[j++]);
-        return sortedArray;
+            .style('top', (y + bmc.originY) + 'px');
     }
 
     /**
@@ -1034,131 +1178,6 @@
             x: d.k,
             y: d.s.quartile === null ? null : d.s.quartile.q3
         };
-    }
-
-    /**
-     * Calculates descriptive statistics for the supplied one-dimensional
-     * data set (array of numerical values).
-     *
-     * <p>This implementation combines several algorithms and reuses common
-     * values that have already been calculated by previous steps, thus
-     * avoiding redundant loops.</p>
-     *
-     * @param {Object[]} dataset A one-dimensional array with data points.
-     * @param {Function | null} comparator A comparator function that takes
-     *        two values <b>a</b> and <b>b</b> and returns <b>0</b> if
-     *        <b>a = b</b>, <b>1</b> if <b>a > b</b>, or <b>-1</b>
-     *        otherwise. If <b>comparator = null</b>, the supplied array will
-     *        be considered to be already sorted.
-     *
-     * @return {Object} An object that contains the statistical information.
-     */
-    function calculateArrayStatistics(dataset, comparator) {
-        var statistics = null, size; /* statistics and number of data points */
-        if (dataset && dataset instanceof Array) {
-            size = dataset.length;
-            var sum, max, min, mean, median,
-                standardDeviation, standardError, quartile,
-                distanceFromMean, isOdd,
-                i, t; /* temp variables */
-
-            if (comparator !== null)
-                dataset.sort(comparator);
-            max = min = sum = t = dataset[0];
-            for (i = 1; i < size; ++i) {
-                t = dataset[i];
-                if (t > max)
-                    max = t;
-                if (t < min)
-                    min = t;
-                sum += t;
-            }
-            /* we now have maximum, minimum and sum of values */
-
-            mean = sum / size;
-
-            for (i = distanceFromMean = t = 0; i < size; ++i) {
-                distanceFromMean = dataset[i] - mean;
-                t += Math.pow(distanceFromMean, 2);
-            }
-
-            standardDeviation = Math.sqrt(t / (size - 1));
-            standardError = standardDeviation / Math.sqrt(size);
-
-            /* calculate median */
-            i = Math.floor(size * 0.5); /* find middle, or left of middle */
-            isOdd = size & 1; /* is the number of data points odd? */
-
-            /* we must make index adjustments since array indexing begins at 0.
-             * when the number of data points is odd, median has already been
-             * index adjusted due to flooring */
-            median = isOdd ? dataset[i] : (dataset[i] + dataset[i - 1]) * 0.5;
-
-            /* calculate quartiles: requires a minimum of 2 data-points */
-            quartile = size > 1 ? getFirstAndThirdQuartiles(dataset) : null;
-
-            statistics = {
-                'sum': sum,
-                'max': max,
-                'min': min,
-                'mean': mean,
-                'median': median,
-                'sd': standardDeviation,
-                'se': standardError,
-                'quartile': quartile
-            };
-        }
-        return statistics;
-    }
-
-    /**
-     * Calculates descriptive statistics for the supplied two-dimensional
-     * data set where each row contains a one-dimensional subset of the data,
-     * and each row is allowed to contain variable number of data points.
-     *
-     * @param {Object[][]} dataset A two-dimensional array with data points.
-     * @param {Function | null} comparator A comparator function that takes
-     *        two values <b>a</b> and <b>b</b> and returns <b>0</b> if
-     *        <b>a = b</b>, <b>1</b> if <b>a > b</b>, or <b>-1</b>
-     *        otherwise. If <b>comparator = null</b>, the supplied array will
-     *        be considered to be already sorted.
-     *
-     * @return {Object} An object that contains the overall statistics for the
-     *     entire dataset, and also multiple statistical information for each
-     *     row of the data set. The structure of this object is as follows:
-     *     {
-     *         o: {max:, min: , sum:, mean:, median:, sd:, quartile: }
-     *         r: [
-     *            {max:, min: , sum:, mean:, median:, sd:, quartile: },
-     *            {max:, min: , sum:, mean:, median:, sd:, quartile: }
-     *            . . . // one stat object for each row in the data set
-     *         ]
-     *     }
-     */
-    function calculateRowStatistics(dataset, comparator) {
-        var statistics = null, size, /* statistics and number of data points */
-            i, t; /* temp counter and variable */
-
-        if (dataset && dataset instanceof Array) {
-            size = dataset.length;
-            statistics = {
-                r: [] /* object array of row statistics */
-            };
-
-            /* find statistics for each of the rows (row may not be sorted) */
-            for (i = 0; i < size; ++i)
-                statistics.r.push(calculateArrayStatistics(dataset[i],
-                    comparator));
-            /* the ith row of the dataset has now been sorted */
-
-            /* merge all of the sorted rows into a sorted array */
-            for (i = 1, t = dataset[0]; i < size; ++i)
-                t = mergeSortedArrays(t, dataset[i], comparator);
-
-            /* get statistics for the merged sorted array */
-            statistics.overall = calculateArrayStatistics(t, null);
-        }
-        return statistics;
     }
 
     /**
@@ -1251,118 +1270,6 @@
     }
 
     /**
-     * Calculates the group statistics of the y-axis values, where the data
-     * points have been grouped using the supplied property.
-     *
-     * @param {Object[]} dataset The data set, which is a one-dimensional
-     *     array of objects with numerical data.
-     * @param {String | Integer} groupKeyColumn The column property, or index,
-     *     in the data-set that stores the key values with which to grouping the
-     *     data points before calculating the statistics.
-     * @param {String | Integer} valueColumn The column that stores the value
-     *     for which we are making statistical calculations.
-     *
-     * @return Object that contains statistical information. The structure of
-     *     this object is as follows:
-     *
-     *     [
-     *         { k, c, d, s: {max, min, sum, mean, median, sd, quartile}},
-     *         { k, c, d, s: {max, min, sum, mean, median, sd, quartile}},
-     *            . . . // one stat object for each row in the data set
-     *     ]
-     *
-     *     where, for each grouped data
-     *
-     *     k: the group key,
-     *     c: number of items in the group
-     *     d: the grouped measured values with same key
-     *     max: maximum y-value
-     *     min: minimum y-value
-     *     sum: sum of the y-values
-     *     mean: mean of the y-value
-     *     median: median of the y-values
-     *     sd: population standard deviation of the y-values for the group
-     *     quartile: 1st and 2nd quartile points for the y-values
-     */
-    function calculateGroupedStatistics(dataset,
-        groupKeyColumn, valueColumn) {
-        var s = {/* statistics group object that will be returned */
-            i: {},
-            c: []
-        },
-        keyValue, measuredValue, currentGroupKeyValue,
-            currentKeyGroup = [], i, size,
-            valueComparator = getNumericalComparator();
-
-        /* sort data in ascending value of key for efficient grouping */
-        dataset.sort(getAttributeValueComparator(groupKeyColumn));
-
-        i = 1;
-        size = dataset.length;
-
-        /* first key value defines the first group */
-        currentGroupKeyValue = dataset[0][groupKeyColumn];
-
-        /* a key-to-index table for rapid reference */
-        s.i[currentGroupKeyValue] = 0;
-
-        /* start group with the first measured value */
-        currentKeyGroup.push(dataset[0][valueColumn]);
-        while (i < size) {
-            keyValue = dataset[i][groupKeyColumn];
-            measuredValue = dataset[i][valueColumn];
-
-            /* still the same group? if so, value should join the group;
-             * otherwise, process current group and start a new group */
-            if (keyValue === currentGroupKeyValue)
-                currentKeyGroup.push(measuredValue);
-            else {
-                /* no longer the same group! caluculate statistical data
-                 * for the current group and store the row statistics */
-                s.c.push({
-                    k: currentGroupKeyValue,
-                    c: currentKeyGroup.length,
-                    s: calculateArrayStatistics(currentKeyGroup,
-                        valueComparator),
-                    d: currentKeyGroup
-                });
-
-                /* we must start a new group. the current key value defines
-                 * the new group; and the only member is its measured value */
-                s.i[keyValue] = s.i[currentGroupKeyValue] + 1;
-                currentGroupKeyValue = keyValue;
-                currentKeyGroup = [measuredValue];
-            }
-            ++i;
-        }
-
-        /* calculate statistics for the unprocessed group */
-        if (currentKeyGroup.length > 0)
-            s.c.push({
-                k: keyValue,
-                c: currentKeyGroup.length,
-                s: calculateArrayStatistics(currentKeyGroup,
-                    valueComparator),
-                d: currentKeyGroup
-            });
-        return s;
-    }
-
-    /**
-     * Returns a comparator function.
-     *
-     * @return {Function | null} comparator A comparator function that takes
-     *        two values <b>a</b> and <b>b</b> and returns <b>0</b> if
-     *        <b>a = b</b>, <b>1</b> if <b>a > b</b>, or <b>-1</b> otherwise.
-     *        If <b>comparator = null</b>, the supplied array is already sorted.
-     */
-    function getNumericalComparator() {
-        return function(a, b) {
-            return a === b ? 0 : a > b ? 1 : -1;
-        };
-    }
-
-    /**
      * Returns a comparator function which takes a column property/index.
      *
      * @param {String | Integer} k Property to use as primary sorting key.
@@ -1375,7 +1282,7 @@
      *        If <b>comparator = null</b>, the supplied array is already sorted.
      */
     function getAttributeValueComparator(k, j) {
-        return function(a, b) {
+        return function (a, b) {
             return a[k] === b[k] ?
                 (j === undefined ? 0 : (a[j] === b[j] ? 0 : a[j] > b[j] ? 1 : -1)) :
                 a[k] > b[k] ? 1 : -1;
@@ -1484,7 +1391,8 @@
                 s[target].push({
                     k: currentGroupKey,
                     c: currentKeyGroup.length,
-                    s: calculateColumnStatistics(currentKeyGroup, 'y', yValueComparator),
+                    s: calculateColumnStatistics(currentKeyGroup, 'y',
+                        yValueComparator),
                     d: currentKeyGroup.sort(xValueComparator)
                 });
 
@@ -1510,7 +1418,8 @@
             s[target].push({
                 k: currentKey,
                 c: currentKeyGroup.length,
-                s: calculateColumnStatistics(currentKeyGroup, 'y', yValueComparator),
+                s: calculateColumnStatistics(currentKeyGroup, 'y',
+                    yValueComparator),
                 d: currentKeyGroup.sort(xValueComparator)
             });
         }
@@ -1617,7 +1526,7 @@
 
         /* the statistics and formatted data */
         var s = {
-            'overall': {}, /* overall statistics: all for y-values, min/max for x */
+            'overall': {}, /* overall statistics: all for y, min/max for x */
             c: {}, /* column statistics where data is grouped by x-values */
             r: {} /* row statistics where data is grouped by animal id */
         }; /* temp variables */
@@ -1649,8 +1558,8 @@
          * have calculated the overall statistics for the x-values, however,
          * since only min and max are required, it will be an overkill */
         s.overall.x = {};
-        s.overall.x.min = s.c.c[0].k; /* the key of the first column statistics */
-        s.overall.x.max = s.c.c[s.c.c.length - 1].k; /* key of last column stat */
+        s.overall.x.min = s.c.c[0].k; /* key of first column statistics */
+        s.overall.x.max = s.c.c[s.c.c.length - 1].k; /* key of last column */
 
         return s;
     }
@@ -1775,7 +1684,7 @@
      */
     function printFrequencyGrid(freqGrid) {
         var i, j;
-        for (i = 0; i < 3; ++i)
+        for (i = 0; i < 5; ++i)
             for (j = 0; j < 4; ++j)
                 console.log(freqGrid[i][j]);
     }
@@ -1808,9 +1717,9 @@
         /* genotype = 0 means wild type datum */
         var type = datum.g === 0 ? 'b' : 'm', value = datum.v;
 
-        incrementCellFrequency(freqGrid, 2, 3, value, type);
+        incrementCellFrequency(freqGrid, 4, 3, value, type);
         incrementCellFrequency(freqGrid, datum.s, datum.z, value, type);
-        incrementCellFrequency(freqGrid, 2, datum.z, value, type);
+        incrementCellFrequency(freqGrid, 4, datum.z, value, type);
         incrementCellFrequency(freqGrid, datum.s, 3, value, type);
     }
 
@@ -1846,7 +1755,7 @@
      */
     function calculateCategoryPercentages(freqGrid) {
         var i, j, freq;
-        for (i = 0, j; i < 3; ++i) {
+        for (i = 0, j; i < 5; ++i) {
             for (j = 0; j < 4; ++j) {
                 freq = freqGrid[i][j];
                 freqGrid[i][j].wildtypeStatistics =
@@ -1869,6 +1778,9 @@
      *         o What percentage of the wild type male homozygous specimens have
      *           option X?
      *         o What percentage of the wild type specimens have option X?
+     *         
+     *         Also returns a list of unique categories used in visualisation.
+     *         This is used when displaying category legends.
      */
     function processCategorical(dataset) {
         /* the following grid data structure captures frequencies for each of
@@ -1877,16 +1789,40 @@
          *                  Het    Hom     Hem    All
          *        Female  (0, 0)  (0, 1)  (0,2)  (0, 3)
          *          Male  (1, 0)  (1, 1)  (1,2)  (1, 3)
-         *   Male/Female  (2, 0)  (2, 1)  (2,2)  (2, 3)
+         *      Intersex  (2, 0)  (2, 1)  (2,2)  (2, 3)
+         *       No data  (3, 0)  (3, 1)  (3,2)  (3, 3)
+         *           All  (4, 0)  (4, 1)  (4,2)  (4, 3)
          *
          * And for each cell, we collect the wild type (b) and mutant (m)
          * counts for each of the parameter options.
          */
-        var freqGrid = createFrequencyGrid(3, 4);
-        for (var i = 0, c = dataset.length; i < c; ++i)
-            processCategoricalDatum(freqGrid, dataset[i]);
+        var freqGrid = createFrequencyGrid(5, 4), datum,
+            category, categoriesInUse = {}, categories = [];
+        for (var i = 0, c = dataset.length; i < c; ++i) {
+            datum = dataset[i];
+            processCategoricalDatum(freqGrid, datum);
+
+            /* if categorial data is free-form without a set of options
+             * specified in IMPReSS, we should assigned indexes based on
+             * the values received. */
+            category = datum.v;
+            if (categoryColourIndex[category] === undefined)
+                categoryColourIndex[category] = numCategories++;
+            /* get list of unique categories used in this visulisation */
+            if (categoriesInUse[category] === undefined) {
+                categoriesInUse[category] = 1;
+                categories.push(category);
+            }
+        }
         calculateCategoryPercentages(freqGrid);
-        return freqGrid;
+        categories.sort(function (a, b) {
+            return a.localeCompare(b);
+        });
+        categories.unshift('Highlighted specimen');
+        return {
+            'freqGrid': freqGrid,
+            'categories': categories
+        };
     }
 
     /**
@@ -2060,7 +1996,7 @@
      * @returns {Function} An event handler.
      */
     function getStatisticsOnMouseEnterHandler(viz, message, type) {
-        return function() {
+        return function () {
             preventEventBubbling();
             relocateInformationBox(getBoundedMouseCoordinate(viz));
             informationBox.html(message)
@@ -2129,7 +2065,7 @@
         whiskerRootDom = svg.append('g').attr('class',
             'whisker ' + id + ' ' + cls)
             .on('mouseenter', onMouseover)
-            .on('mouseleave', function() {
+            .on('mouseleave', function () {
                 hideInformationBox();
             });
 
@@ -2301,32 +2237,6 @@
     }
 
     /**
-     * Draws the day and night visualisation.
-     *
-     * @param {Object} svg The parent D3 selected DOM element to render to.
-     * @param {Real} nightStart Screen coordinate for start of night.
-     * @param {Real} nightEnd Screen coordinate for end of night.
-     *
-     * @return {Object} The modified DOM element.
-     */
-    function plotDayAndNightBand(svg, nightStart, nightEnd) {
-        var t;
-
-        /* value of nightStart should be less than that of nightEnd */
-        if (nightStart > nightEnd) {
-            t = nightStart;
-            nightStart = nightEnd;
-            nightEnd = t;
-        }
-
-        t = svg.viz.scale.y.range();
-
-        rect(svg, nightStart, t[1],
-            nightEnd - nightStart, t[0] - t[1], 'day-night');
-        return svg;
-    }
-
-    /**
      * Draws the overall statistical information for the entire data set.
      *
      * @param {Object} viz The visualisation object.
@@ -2448,214 +2358,33 @@
         return svg;
     }
 
-    /**
-     * Convert radian to degrees.
-     * 
-     * @param {Real} radian Angle in radian.
-     * @returns Angle in degree.
-     */
-    function getDegreeFromRadian(radian) {
-        return (180 * radian) / Math.PI;
+    function getEmbryoStage(key) {
+        if (key.indexOf('_EVL_') !== -1)
+            return {
+                's': 'E9.5',
+                'k': 'EVL'
+            };
+        else if (key.indexOf('_EVM_') !== -1)
+            return {
+                's': 'E12.5',
+                'k': 'EVM'
+            };
+        else if (key.indexOf('_EVO_') !== -1)
+            return {
+                's': 'E14.5 - E15.5',
+                'k': 'EVO'
+            };
+        else if (key.indexOf('_EVP_') !== -1)
+            return {
+                's': 'E18.5',
+                'k': 'EVP'
+            };
+        else
+            return null;
     }
 
     /**
-     * Returns percentage of Pie.
-     * 
-     
-     * @param {Real} start Start angle in radian.
-     * @param {Real} end End angle in radian.
-     * @returns Percentage of pie segment.
-     */
-    function getPiePercentage(start, end) {
-        var deg = getDegreeFromRadian(end - start);
-        return (deg * 100) / 360;
-    }
-
-    /**
-     * Render's a pie chart.
-     * 
-     * @param {Object} svg SVG container.
-     * @param {Object} data Pie chart data.
-     * @param {String} label Label to display at the bottom of pie.
-     */
-    function renderPie(svg, data, label) {
-        var labelHeight = 35, w = width(svg), h = height(svg) - labelHeight,
-            radius = Math.min(w, h) / 2, g, total = 0,
-            arc = d3.svg.arc().outerRadius(radius).innerRadius(0),
-            colour = d3.scale.ordinal().range(pieColours),
-            pie = d3.layout.pie().sort(null)
-            .value(
-                function(d) {
-                    total += d.v;
-                    return d.v;
-                });
-
-        svg = svg.append("g")
-            .attr("transform", "translate(" + w / 2 + "," + h / 2 + ")");
-
-        g = svg.selectAll(".arc").data(pie(data))
-            .enter().append("g").attr("class", "arc")
-            .attr("percentage", function(d) {
-                return getPiePercentage(d.startAngle, d.endAngle);
-            });
-
-        g.append("path").attr("d", arc)
-            .style("fill",
-                function(d) {
-                    return colour(d.data.l);
-                });
-        g.append("text")
-            .attr("transform",
-                function(d) {
-                    return "translate(" + arc.centroid(d) + ")";
-                })
-            .attr('class', 'pie-piece-label')
-            .text(function(d) {
-                var percentage = d.data.v * 100 / total;
-                return percentage.toFixed(2) > 0 ? d.data.l : '';
-            });
-        g.append("text")
-            .attr("transform",
-                function(d) {
-                    return "translate(" + arc.centroid(d) + ")";
-                })
-            .attr("dy", "1.25em")
-            .attr('class', 'pie-percentage')
-            .text(function(d) {
-                var percentage = d.data.v * 100 / total;
-                percentage = percentage.toFixed(2);
-                return percentage > 0 ? percentage + '%' : '';
-            });
-        text(svg, 0, radius + labelHeight / 2, label, 'pie-label');
-    }
-
-    /**
-     * Returns a collection of SVG container to contain specified number of
-     * pie charts.
-     * 
-     * @param {Object} node Parent DOM node that will contain the pie charts.
-     * @param {type} count Number of pie chart of fit inside the parent.
-     * @param {String} orientation How should the pies be oriented.
-     * @param {Boolean} isParentChild In a parent child relationship, we
-     *     display the data split between parent pie and children pie.
-     * @param {Real} shrinkFactor Child/parent pie radius ratio.
-     * @param {Integer} gapSize Size of the gap between pies.
-     * @returns {Array} Returns an array of SVG containers.
-     */
-    function getPiesContainer(node, count, orientation,
-        isParentChild, shrinkFactor, gapSize) {
-        var w = width(node), h = height(node), i, containers = [], t, e = 0,
-            numGaps; /* insert gaps between pies */
-        if (isParentChild) {
-            numGaps = count - 1;
-            w -= gapSize * numGaps;
-        }
-        switch (orientation) {
-            case 'v': /* pies should be aligned vertically in a column */
-                h /= count;
-                break;
-            case 'h':
-            default: /* pies should be aligned horizontally in a row */
-                w /= count;
-                break;
-        }
-        if (isParentChild)
-            count += numGaps;
-        for (i = 0; i < count; ++i) {
-            t = i % 2 ? gapSize : w;
-            e += t;
-            containers[i] = node.append("svg")
-                .attr("width", t)
-                .attr("height", h);
-            if (isParentChild && i === 0)
-                w *= shrinkFactor; /* all following pies are children */
-        }
-        node.style('padding-left', ((width(node) - e) / 2) + 'px');
-        return containers;
-    }
-
-    /**
-     * Renders a the table that was usd to generate pie-charts.
-     * 
-     * @param {Object} div Table container.
-     * @param {Object} data Contains data to show in table.
-     * @param {Array} headers Array of strings to use as headers.
-     * @param {Boolean} showColumnTotal True to show last row column-total.
-     * @param {Boolean} showRowTotal True to show last column row-total.
-     */
-    function renderPieTable(div, data, headers, showColumnTotal, showRowTotal) {
-        var table = div.append('table'), key, rowData, i, c, tr,
-            rowTotal, columnTotals, value;
-
-        tr = table.append('tr');
-        tr.append('td');
-        for (i = 0, c = headers.length; i < c; ++i)
-            tr.append('td').text(headers[i]);
-        if (showRowTotal)
-            tr.append('td').text('Total');
-
-        for (key in data) {
-            rowData = data[key];
-            tr = table.append('tr');
-            tr.append('td').text(key);
-            c = rowData.length;
-            rowTotal = 0;
-            if (columnTotals === undefined) {
-                columnTotals = [];
-                for (i = 0; i < c; ++i)
-                    columnTotals[i] = 0;
-            }
-            for (i = 0; i < c; ++i) {
-                value = rowData[i].v;
-                rowTotal += value;
-                columnTotals[i] += value;
-                tr.append('td').text(value);
-            }
-            if (showRowTotal)
-                tr.append('td').attr('class', 'row-total').text(rowTotal);
-        }
-        if (showColumnTotal) {
-            tr = table.append('tr');
-            tr.append('td').text('Total');
-            for (i = 0; i < c; ++i)
-                tr.append('td').attr('class', 'column-total').text(columnTotals[i]);
-            tr.append('td');
-        }
-    }
-
-    /**
-     * Process viability data.
-     * 
-     * @param {Object} data Viability data object returned by server.
-     */
-    function processViabilityData(data) {
-        var data = data[0], groups = data.groups, key, field, group, sum, e, v;
-        for (key in groups) {
-            group = groups[key];
-            data.groups[key] = [];
-            sum = 0;
-            for (field in group) {
-                v = parseInt(group[field]);
-                if (isNaN(v))
-                    return null;
-
-                /* we do not use the supplied total: they are calculated */
-                if (field === 'total')
-                    e = v;
-                else {
-                    data.groups[key].push({'l': field, 'v': v});
-                    sum += v;
-                }
-            }
-            if (sum !== e)
-                console.warn("Supplied total does not match sum for '" +
-                    key + "'.");
-        }
-        return data;
-    }
-
-    /**
-     * Plot viability.
+     * Plot tabular data.
      * 
      * @param {String} id Visualisation identifier.
      * @param {Object} parent Container DOM node.
@@ -2663,44 +2392,68 @@
      * @param {Integer} sid Strain id.
      * @param {Integer} cid Centre id.
      * @param {String} qeid Parameter key.
+     * @param {String} procedure Procedure to display.
+     * @param {Object} embryoStage Embryo stage if data; otherwise, null.
      */
-    function plotViability(id, parent, gid, sid, cid, qeid) {
+    function plotTabularData(id, parent, gid, sid, cid, qeid,
+        procedure, embryoStage) {
         parent.classed('loading', false);
-        var geneId = prepareGeneStrainCentreId(gid, sid, cid),
-            data = measurementsSet[ZYGOSITY_ALL][geneId]['VIABILITY'];
+        var geneId = dcc.prepareGeneStrainCentreId(gid, sid, cid),
+            key = procedure.toUpperCase(), data, v, d, tr, title, table,
+            stage, header, container;
+
+        if (embryoStage)
+            key = 'EMBRYO-' + key;
+
+        data = measurementsSet[ZYGOSITY_ALL][geneId][key];
         if (data === null) {
             displayNoDataWarning(parent, qeid);
             return;
         }
-        var tableHeight = 160, gapSize = 50, key, i = 0,
-            title = addDiv(parent, null, 'viability-title'),
-            pies = addDiv(parent, null, 'pie-charts'),
-            table = addDiv(parent, null, 'pie-table'),
-            containers, temp, gapText = '=', outcome = data.outcome;
 
-        height(pies, height(parent) - tableHeight);
-        height(table, tableHeight);
-        containers = getPiesContainer(pies, 3, 'h', true, 0.7, gapSize);
+        title = addDiv(parent, null, 'tabular-title');
+        stage = addDiv(parent, null, 'tabular-stage');
+        header = addDiv(parent, null, 'tabular-table-header');
+        container = addDiv(parent, null, 'tabular-table-container');
 
-        title.html('<span>Viability procedure</span><span>Combines multiple parameters</span>');
-        /* when using a parent-child pie charts grid, the first pie must be
-         * the parent pie */
-        data = data.groups;
+        title.html('<span class="title-gene-symbol">' +
+            availableGenesMap[geneId].geneSymbol +
+            '</span><span class="title-procedure">' +
+            (embryoStage ? 'Embryo ' : 'Adult ') + procedure +
+            ' procedure</span>' +
+            '<span class="title-parameter">Combines multiple parameters</span>');
+        table = header.append('table');
+        tr = table.append('thead').append('tr');
+        tr.append('th').text("Parameter Key");
+        tr.append('th').text("Name");
+        tr.append('th').text("Value");
+
+        table = container.append('table');
+        table = table.append('tbody');
         for (key in data) {
-            renderPie(containers[i++], data[key], key);
-            temp = containers[i];
-            if (temp !== undefined) {
-                temp.append('text').text(gapText).attr('class', 'pie-gap-label')
-                    .attr('x', gapSize / 2)
-                    .attr('y', height(temp) / 2)
-                    .attr('dy', "-.25em");
-                gapText = '+';
-                i++;
+            d = data[key];
+            tr = table.append('tr').classed('odd', key % 2);
+            tr.append('td').text(d.key);
+            tr.append('td').text(d.name);
+            v = parseFloat(d.value);
+            if (isNaN(v))
+                v = d.value;
+            else {
+                if (d.value.indexOf('.') !== -1)
+                    v = toDisplayPrecision(v);
+                else
+                    v = d.value;
             }
+            tr.append('td').text(v);
         }
-        addDiv(table).html('<b>Outcome:</b> ' + outcome);
-        renderPieTable(table, data, ['Wildtype', 'Heterozygote', 'Homozygote'],
-            false, true);
+
+        if (embryoStage)
+            stage.html('<span>Stage:</span><span>' + embryoStage.s + '</span>');
+
+        parent.refit = function () {
+            height(container, height(parent) - height(title) - height(stage) - height(header));
+        };
+        parent.refit();
     }
 
     /**
@@ -2715,13 +2468,14 @@
      * @param {Integer} cid Centre identifier.
      * @param {String} qeid Parameter key.
      */
-    function retrieveAndVisualiseViabilityData(id, target, gid, sid, cid, qeid) {
+    function retrieveAndVisualiseViabilityData(id, target, gid, sid,
+        cid, qeid) {
         d3.json('rest/viability?' +
-            '&cid=' + cid +
+            'cid=' + cid +
             '&gid=' + gid +
             '&sid=' + sid,
-            function(data) {
-                var geneId = prepareGeneStrainCentreId(gid, sid, cid);
+            function (data) {
+                var geneId = dcc.prepareGeneStrainCentreId(gid, sid, cid);
                 if (data && data.success) {
                     /* update QC status */
                     if (!qcstatus[geneId])
@@ -2731,104 +2485,621 @@
                     if (!measurementsSet[ZYGOSITY_ALL][geneId])
                         measurementsSet[ZYGOSITY_ALL][geneId] = {};
                     measurementsSet[ZYGOSITY_ALL][geneId]['VIABILITY'] =
-                        processViabilityData(data.viability);
+                        data.viability;
+                    plotTabularData(id, target, gid, sid, cid, qeid,
+                        'viability', null);
+                } else
+                    displayNoDataWarning(target, 'OVERVIEWS_VIA');
+            });
+    }
 
-                    plotViability(id, target, gid, sid, cid, qeid);
+    /**
+     * Retrieves embryo viability data from the server and displays them in the
+     * visualisation cluster. Calculations are cached for future
+     * references.
+     * 
+     * @param {Integr} id Visualisation identifier.
+     * @param {Object} target Visualisation container DOM node.
+     * @param {Integer} gid Genotype identifier.
+     * @param {Integer} sid Srain identifier.
+     * @param {Integer} cid Centre identifier.
+     * @param {String} qeid Parameter key.
+     * @param {Object} embryoStage Embryo stage object; otherwise, null.
+     */
+    function retrieveAndVisualiseEmbryoViabilityData(id, target, gid,
+        sid, cid, qeid, embryoStage) {
+        d3.json('rest/embryo-viability?' +
+            'cid=' + cid +
+            '&gid=' + gid +
+            '&sid=' + sid +
+            '&stage=' + embryoStage.k,
+            function (data) {
+                var geneId = dcc.prepareGeneStrainCentreId(gid, sid, cid);
+                if (data && data.success) {
+                    /* update QC status */
+                    if (!qcstatus[geneId])
+                        qcstatus[geneId] = {};
+                    qcstatus[geneId]['EMBRYO-VIABILITY'] = 0;
+
+                    if (!measurementsSet[ZYGOSITY_ALL][geneId])
+                        measurementsSet[ZYGOSITY_ALL][geneId] = {};
+                    measurementsSet[ZYGOSITY_ALL][geneId]['EMBRYO-VIABILITY'] =
+                        data.viability;
+                    plotTabularData(id, target, gid, sid, cid, qeid, 'viability', embryoStage);
                 } else
                     displayNoDataWarning(target, qeid);
             });
     }
 
     /**
-     * Process fertility data.
+     * Retrieves LacZ overview data from the server and displays them in the
+     * visualisation cluster. Calculations are cached for future
+     * references.
      * 
-     * @param {Object} data Fertility data object returned by server.
+     * @param {Integr} id Visualisation identifier.
+     * @param {Object} target Visualisation container DOM node.
+     * @param {Integer} gid Genotype identifier.
+     * @param {Integer} sid Srain identifier.
+     * @param {Integer} cid Centre identifier.
      */
-    function processFertilityData(data) {
-        var data = data[0];
-        if (data.grossFindingsMale === null ||
-            data.grossFindingsFemale === null) {
-            console.warn("Server return invalid fertility measurements");
-            data = null;
-        }
-        return data;
+    function retrieveAndVisualiseLacZOverviews(id, target, gid, sid, cid) {
+        d3.json('rest/lacz?' +
+            'cid=' + cid +
+            '&gid=' + gid +
+            '&sid=' + sid,
+            function (data) {
+                var geneId = dcc.prepareGeneStrainCentreId(gid, sid, cid);
+                if (data && data.success) {
+                    if (!measurementsSet[ZYGOSITY_ALL][geneId])
+                        measurementsSet[ZYGOSITY_ALL][geneId] = {};
+                    measurementsSet[ZYGOSITY_ALL][geneId]['OVERVIEWS_ALZ'] =
+                        data.overview;
+                    displayLacZOverviews(id, target, gid, sid, cid);
+                } else
+                    displayNoDataWarning(target, 'OVERVIEWS_ALZ');
+            });
+    }
+
+
+    /**
+     * Retrieves Gross Morphology overview data from the server and
+     * displays them in the visualisation cluster. Calculations are cached
+     * for future references.
+     * 
+     * @param {Integr} id Visualisation identifier.
+     * @param {Object} target Visualisation container DOM node.
+     * @param {Integer} gid Genotype identifier.
+     * @param {Integer} sid Srain identifier.
+     * @param {Integer} cid Centre identifier.
+     * @param {String] morphologyType Embryo or Placenta
+     */
+    function retrieveAndVisualiseGrossMorphologyOverviews(id, target, gid, sid, cid, morphologyType) {
+        var restTarget = 'rest/' +
+            (morphologyType === 'OVERVIEWS_GEP' ? 'gep' : 'gpm');
+        d3.json(restTarget + '?' +
+            'cid=' + cid +
+            '&gid=' + gid +
+            '&sid=' + sid,
+            function (data) {
+                var geneId = dcc.prepareGeneStrainCentreId(gid, sid, cid);
+                if (data && data.success) {
+                    if (!measurementsSet[ZYGOSITY_ALL][geneId])
+                        measurementsSet[ZYGOSITY_ALL][geneId] = {};
+                    measurementsSet[ZYGOSITY_ALL][geneId][morphologyType] =
+                        data.overview;
+                    displayGrossMorphologyOverviews(id, target, gid, sid, cid, morphologyType);
+                } else
+                    displayNoDataWarning(target, morphologyType);
+            });
     }
 
     /**
-     * Rnders fertility table.
+     * Retrieves gross pathology overview data from the server and displays
+     * them in the visualisation cluster. Calculations are cached for future
+     * references.
      * 
-     * @param {Object} target Table target.
-     * @param {Object} data Fertility data.
+     * @param {Integr} id Visualisation identifier.
+     * @param {Object} target Visualisation container DOM node.
+     * @param {Integer} gid Genotype identifier.
+     * @param {Integer} sid Srain identifier.
+     * @param {Integer} cid Centre identifier.
      */
-    function renderFertilityTable(target, data) {
-        var table, tr, primary, male, female;
+    function retrieveAndVisualiseGrossPathologyOverviews(id, target, gid, sid, cid) {
+        d3.json('rest/grosspathology?' +
+            'cid=' + cid +
+            '&gid=' + gid +
+            '&sid=' + sid,
+            function (data) {
+                var geneId = dcc.prepareGeneStrainCentreId(gid, sid, cid);
+                if (data && data.length > 0) {
+                    if (!measurementsSet[ZYGOSITY_ALL][geneId])
+                        measurementsSet[ZYGOSITY_ALL][geneId] = {};
+                    measurementsSet[ZYGOSITY_ALL][geneId]['OVERVIEWS_PAT'] =
+                        data;
+                    displayGrossPathologyOverviews(target, gid, sid, cid);
+                } else
+                    displayNoDataWarning(target, 'OVERVIEWS_PAT');
+            });
+    }
 
-        target.append('br');
-        addDiv(target).html('<b>Gross findings male:</b> ' + data.grossFindingsMale);
-        addDiv(target).html('<b>Gross findings female:</b> ' + data.grossFindingsFemale);
-        target.append('br');
+    function getLacZExpressionCallClass(data) {
+        var cls, title, decider;
+        if (data.e > 0) {
+            decider = 'e';
+            cls = 'expression';
+            title = 'Expression';
+        } else if (data.a > 0) {
+            decider = 'a';
+            cls = 'ambiguous';
+            title = 'Ambiguous';
+        } else if (data.ne > 0) {
+            decider = 'ne';
+            cls = 'no-expression';
+            title = 'No expression';
+        } else if (data.io > 0) {
+            decider = 'io';
+            cls = 'image-only';
+            title = 'Image only';
+        } else {
+            decider = '';
+            cls = 'no-tissue';
+            title = 'Tissue not available';
+        }
+        return {
+            'cls': 'alz-' + cls,
+            'title': title,
+            'decider': decider
+        };
+    }
 
-        table = target.append('table');
-        tr = table.append('tr');
-        primary = data['primary'];
-        male = data['male'];
-        female = data['female'];
+    function addAlzOverviewColumn(tr, clsTitle, data, field, isLastColumn) {
+        tr.append('td')
+            .attr('class', clsTitle.cls)
+            .attr('title', clsTitle.title)
+            .classed('alz-last-column', isLastColumn)
+            .append('div')
+            .attr('class', clsTitle.decider === field ? 'alz-decider' : '')
+            .text(data[field]);
+    }
 
+    function addAlzOverviewLegend(parent, label, cls, title) {
+        var t = parent.append('div').attr('class', 'alz-legend');
+        t.append('div').attr('class', 'alz-color-box alz-' + cls);
+        t.append('div').attr('class', 'alz-label').text(label);
+        if (title)
+            t.attr('title', title);
+    }
+
+    function displayLacZOverviewsColumnHeader(tr, showLastColumnBorder) {
+        var td;
+        tr.append('td').text('Male').attr('title', 'Male count');
+        tr.append('td').text('Female').attr('title', 'Female count');
+        tr.append('td').text('E').attr('title', 'Expression');
+        tr.append('td').text('NE').attr('title', 'No Expression');
+        tr.append('td').text('A').attr('title', 'Ambiguous');
+        td = tr.append('td').text('IO').attr('title', 'Image Only');
+        if (showLastColumnBorder)
+            td.attr('class', 'alz-last-column');
+    }
+
+    function displayLacZOverviewsTitleAndLegends(title, table,
+        geneSymbol) {
+        var tr;
+        title.append('span')
+            .attr('class', 'title-gene-symbol')
+            .text(geneSymbol);
+        title.append('span')
+            .attr('class', 'title-procedure')
+            .text('LacZ Expression Overview');
+        tr = table.append('tr').attr('class', 'alz-overview-header-top');
         tr.append('td');
-        tr.append('td').text('Primary');
-        tr.append('td').text('Male screen');
-        tr.append('td').text('Female screen');
-
-        tr = table.append('tr');
-        tr.append('td').text('Total matings');
-        tr.append('td').text(primary.matings === null ? '?' : primary.matings);
-        tr.append('td').text(male.matings === null ? '?' : male.matings);
-        tr.append('td').text(female.matings === null ? '?' : female.matings);
-
-        tr = table.append('tr');
-        tr.append('td').text('Total pups born');
-        tr.append('td').text(primary.born === null ? '?' : primary.born);
-        tr.append('td').text(male.born === null ? '?' : male.born);
-        tr.append('td').text(female.born === null ? '?' : female.born);
-
-        tr = table.append('tr');
-        tr.append('td').text('Total litters');
-        tr.append('td').text(primary.litters === null ? '?' : primary.litters);
-        tr.append('td').text(male.litters === null ? '?' : male.litters);
-        tr.append('td').text(female.litters === null ? '?' : female.litters);
-
-        tr = table.append('tr');
-        tr.append('td').text('Total embryos/pups with dissection');
-        tr.append('td').text(primary.dissectionEmbryos === null ? '?' : primary.dissectionEmbryos);
-        tr.append('td').text(male.dissectionEmbryos === null ? '?' : male.dissectionEmbryos);
-        tr.append('td').text(female.dissectionEmbryos === null ? '?' : female.dissectionEmbryos);
+        tr.append('td').attr('colspan', 6).text('wildtype');
+        tr.append('td').attr('colspan', 6).text('mutant');
+        tr = table.append('tr').attr('class', 'alz-overview-header-bottom');
+        tr.append('td').text('Parameter');
+        displayLacZOverviewsColumnHeader(tr, true);
+        displayLacZOverviewsColumnHeader(tr, false);
     }
 
-    /**
-     * Plot fertility.
-     * 
-     * @param {String} id Visualisation identifier.
-     * @param {Object} parent Container DOM node.
-     * @param {Integer} gid Genotype id.
-     * @param {Integer} sid Strain id.
-     * @param {Integer} cid Centre id.
-     * @param {String} qeid Parameter key.
-     */
-    function plotFertility(id, parent, gid, sid, cid, qeid) {
-        parent.classed('loading', false);
-        var geneId = prepareGeneStrainCentreId(gid, sid, cid),
-            data = measurementsSet[ZYGOSITY_ALL][geneId]['FERTILITY'];
-        if (data === null) {
-            displayNoDataWarning(parent, qeid);
-            return;
-        }
-        var tableHeight = 150,
-            title = addDiv(parent, null, 'viability-title'),
-            table = addDiv(parent, null, 'pie-table')
-            .style('height', tableHeight + 'px');
+    function displayLacZOverviewsLegendDescriptions(legend) {
+        addAlzOverviewLegend(legend, 'Expression', 'expression');
+        addAlzOverviewLegend(legend, 'No expression', 'no-expression');
+        addAlzOverviewLegend(legend, 'Ambiguous', 'ambiguous');
+        addAlzOverviewLegend(legend, 'Image only', 'image-only');
+        addAlzOverviewLegend(legend, 'No tissue', 'no-tissue');
+        addAlzOverviewLegend(legend, 'Why?', 'decider',
+            'Why the call was made?');
+    }
 
-        title.html('<span>Fertility procedure</span><span>Combines multiple parameters</span>');
-        renderFertilityTable(table, data);
+    function displayLacZOverviewsRow(tr, data, showLastColumnBorder) {
+        var clsTitle = getLacZExpressionCallClass(data);
+        addAlzOverviewColumn(tr, clsTitle, data, 'mc');
+        addAlzOverviewColumn(tr, clsTitle, data, 'fc');
+        addAlzOverviewColumn(tr, clsTitle, data, 'e');
+        addAlzOverviewColumn(tr, clsTitle, data, 'ne');
+        addAlzOverviewColumn(tr, clsTitle, data, 'a');
+        addAlzOverviewColumn(tr, clsTitle, data, 'io', showLastColumnBorder);
+    }
+
+    function displayLacZOverviews(id, target, gid, sid, cid) {
+        target.classed('loading', false);
+        var title = target.append('div').attr('class', 'tabular-title'),
+            legend = target.append('div').attr('class', 'alz-legends'),
+            content = target.append('div').attr('class', 'alz-contents'),
+            table = content.append('table').attr('class', 'alz-overview-table'),
+            tr, i, c, temp,
+            geneId = dcc.prepareGeneStrainCentreId(gid, sid, cid),
+            data = measurementsSet[ZYGOSITY_ALL][geneId]['OVERVIEWS_ALZ'];
+
+        displayLacZOverviewsTitleAndLegends(title, table,
+            availableGenesMap[geneId].geneSymbol);
+        for (i = 0, c = data.length; i < c; ++i) {
+            temp = data[i];
+            tr = table.append('tr');
+            tr.append('td').text(temp.qn);
+
+            /* wildtype */
+            if (temp.w === undefined)
+                tr.append('td')
+                    .attr('colspan', 6)
+                    .attr('class', 'alz-no-data')
+                    .text('No wildtype data');
+            else
+                displayLacZOverviewsRow(tr, temp.w, true);
+
+            /* mutant */
+            if (temp.m === undefined)
+                tr.append('td')
+                    .attr('colspan', 6)
+                    .attr('class', 'alz-no-data')
+                    .text('No mutant data');
+            else
+                displayLacZOverviewsRow(tr, temp.m, false);
+
+            /* if there is associated media, make row click show media */
+            if (temp.aqeid)
+                tr.classed('has-media', true)
+                    .on("click", getImageViewerHandler('#content',
+                        cid, gid, sid, temp.aqeid,
+                        "Associated media for Adult LacZ - " + temp.qn,
+                        temp.aqn + ' - ' + temp.aqeid, temp.qeid));
+            else {
+                tr.selectAll('*').style('cursor', 'default');
+            }
+        }
+        displayLacZOverviewsLegendDescriptions(legend);
+        target.title = title;
+        target.legend = legend;
+        target.content = content;
+
+        target.refit = function () {
+            height(content, height(target) - height(title) - height(legend));
+        };
+        target.refit();
+    }
+
+    function getGrossMorphologyCallClass(data) {
+        var cls, title, decider;
+        /* these are rules from Henrik Westerberg,
+         * email dated Wed 27/01/2016 13:19
+         */
+        if (data.a > 1 || data.y > 1) {
+            decider = 'a';
+            cls = 'abnormal';
+            title = 'Abnormal';
+        } else if (data.u === (data.hom + data.het + data.hem)) {
+            decider = 'u';
+            cls = 'unobservable';
+            title = 'Unobservable';
+        } else {
+            decider = ''; /* we don't want to highlight */
+            cls = 'normal';
+            title = 'Normal';
+        }
+        return {
+            'cls': 'gep-' + cls,
+            'title': title,
+            'decider': decider
+        };
+    }
+
+    function addGrossMorphologyOverviewsColumn(tr, clsTitle, data, field, isFirstColumn) {
+        tr.append('td')
+            .attr('class', clsTitle.cls)
+            .attr('title', clsTitle.title)
+            .classed('gep-first-column', isFirstColumn)
+            .append('div')
+            .attr('class', clsTitle.decider === field ? 'gep-decider' : '')
+            .text(data[field]);
+    }
+
+    function addGrossMorphologyOverviewsLegend(parent, label, cls, title) {
+        var t = parent.append('div').attr('class', 'gep-legend');
+        t.append('div').attr('class', 'gep-color-box gep-' + cls);
+        t.append('div').attr('class', 'gep-label').text(label);
+        if (title)
+            t.attr('title', title);
+    }
+
+    function displayGrossMorphologyOverviewsColumnHeader(tr) {
+        tr.append('td').text('M').attr('title', 'Male count').attr('class', 'gep-first-column');
+        tr.append('td').text('F').attr('title', 'Female count');
+        tr.append('td').text('S').attr('title', 'Unknown sex count');
+        tr.append('td').text('N').attr('title', 'Normal');
+        tr.append('td').text('A').attr('title', 'Abnormal');
+        tr.append('td').text('U').attr('title', 'Unobservable');
+        tr.append('td').text('NA').attr('title', 'Not available');
+    }
+
+    function displayGrossMorphologyOverviewsTitleAndLegends(title, table,
+        geneSymbol, morphologyType, showZygosity) {
+        var tr;
+        title.append('span')
+            .attr('class', 'title-gene-symbol')
+            .text(geneSymbol);
+        title.append('span')
+            .attr('class', 'title-procedure')
+            .text('Gross Morphology ' + morphologyType + ' Overview');
+        tr = table.append('tr').attr('class', 'gep-overview-header-top');
+        tr.append('td');
+        tr.append('td').attr('colspan', 7).text('wildtype');
+        if (showZygosity['hom'])
+            tr.append('td').attr('colspan', 7).text('homozygotes');
+        if (showZygosity['het'])
+            tr.append('td').attr('colspan', 7).text('heterozygotes');
+        tr = table.append('tr').attr('class', 'gep-overview-header-bottom');
+        tr.append('td').text('Parameter');
+        displayGrossMorphologyOverviewsColumnHeader(tr);
+        if (showZygosity['hom'])
+            displayGrossMorphologyOverviewsColumnHeader(tr);
+        if (showZygosity['het'])
+            displayGrossMorphologyOverviewsColumnHeader(tr);
+    }
+
+    function displayGrossMorphologyOverviewsLegendDescriptions(legend) {
+        addGrossMorphologyOverviewsLegend(legend, 'Normal', 'normal');
+        addGrossMorphologyOverviewsLegend(legend, 'Abnormal', 'abnormal');
+        addGrossMorphologyOverviewsLegend(legend, 'Unobservable', 'unobservable');
+        addGrossMorphologyOverviewsLegend(legend, 'Not available', 'not-available');
+        addGrossMorphologyOverviewsLegend(legend, 'Why?', 'decider',
+            'Why the call was made?');
+    }
+
+    function displayGrossMorphologyOverviewsRow(tr, data) {
+        var clsTitle = getGrossMorphologyCallClass(data);
+        addGrossMorphologyOverviewsColumn(tr, clsTitle, data, 'mc', true);
+        addGrossMorphologyOverviewsColumn(tr, clsTitle, data, 'fc');
+        addGrossMorphologyOverviewsColumn(tr, clsTitle, data, 'uc');
+        addGrossMorphologyOverviewsColumn(tr, clsTitle, data, 'n');
+        addGrossMorphologyOverviewsColumn(tr, clsTitle, data, 'a');
+        addGrossMorphologyOverviewsColumn(tr, clsTitle, data, 'u');
+        addGrossMorphologyOverviewsColumn(tr, clsTitle, data, 'v');
+    }
+
+    function displayGrossMorphologyOverviews(id, target, gid, sid, cid, morphologyType) {
+        target.classed('loading', false);
+        var title = target.append('div').attr('class', 'tabular-title'),
+            legend = target.append('div').attr('class', 'gep-legends'),
+            content = target.append('div').attr('class', 'gep-contents'),
+            table = content.append('table').attr('class', 'gep-overview-table'),
+            tr, i, c, temp,
+            showZygosity = {
+                'hom': false,
+                'het': false,
+                'hem': false
+            },
+        geneId = dcc.prepareGeneStrainCentreId(gid, sid, cid),
+            data = measurementsSet[ZYGOSITY_ALL][geneId][morphologyType];
+
+        for (i = 0, c = data.length; i < c; ++i) {
+            temp = data[i];
+            if (temp.hom !== undefined)
+                showZygosity['hom'] = true;
+            if (temp.het !== undefined)
+                showZygosity['het'] = true;
+            if (temp.hem !== undefined)
+                showZygosity['hem'] = true;
+        }
+
+        displayGrossMorphologyOverviewsTitleAndLegends(title, table,
+            availableGenesMap[geneId].geneSymbol,
+            morphologyType === 'OVERVIEWS_GEP' ? 'Embryo' : 'Placenta',
+            showZygosity);
+
+        for (i = 0, c = data.length; i < c; ++i) {
+            temp = data[i];
+            tr = table.append('tr');
+            tr.append('td').text(temp.qn);
+
+            /* wildtype */
+            if (temp.w === undefined)
+                tr.append('td')
+                    .attr('colspan', 7)
+                    .attr('class', 'gep-no-data')
+                    .text('No wildtype data');
+            else
+                displayGrossMorphologyOverviewsRow(tr, temp.w);
+
+            /* mutant (hom) */
+            if (showZygosity['hom']) {
+                if (temp.hom === undefined)
+                    tr.append('td')
+                        .attr('colspan', 7)
+                        .attr('class', 'gep-no-data')
+                        .text('No hom data');
+                else
+                    displayGrossMorphologyOverviewsRow(tr, temp.hom);
+            }
+
+            /* mutant (het) */
+            if (showZygosity['het']) {
+                if (temp.het === undefined)
+                    tr.append('td')
+                        .attr('colspan', 7)
+                        .attr('class', 'gep-no-data')
+                        .text('No het data');
+                else
+                    displayGrossMorphologyOverviewsRow(tr, temp.het);
+            }
+
+            /* if there is associated media, make row click show media */
+            if (temp.aqeid)
+                tr.classed('has-media', true)
+                    .on("click", getImageViewerHandler('#content',
+                        cid, gid, sid, temp.aqeid,
+                        "Associated media for Gross Morphology - " + temp.qn,
+                        temp.aqn + ' - ' + temp.aqeid, temp.qeid));
+            else {
+                tr.selectAll('*').style('cursor', 'default');
+            }
+        }
+        displayGrossMorphologyOverviewsLegendDescriptions(legend);
+        target.title = title;
+        target.legend = legend;
+        target.content = content;
+
+        target.refit = function () {
+            height(content, height(target) - height(title) - height(legend));
+        };
+        target.refit();
+    }
+
+    function getGrossPathologyBackHandler(target, gid, sid, cid) {
+        return function () {
+            displayGrossPathologyOverviews(target, gid, sid, cid);
+        };
+    }
+
+    function displayGrossPathologyRowDetails(target, gid, sid, cid, data) {
+        target.classed('loading', false);
+        var back = target.select('.tabular-back-button'),
+            content = target.select('.tabular-table-container'),
+            table, tr, i, datum, terms, t, td;
+        table = content.append('table').attr('class', 'gross-pathology-details-table');
+        tr = table.append('thead').append('tr');
+        tr.append('th').text('Animal name');
+        tr.append('th').text('Zygosity');
+        tr.append('th').text('Gender');
+        tr.append('th').text('Terms');
+        for (i in data) {
+            datum = data[i];
+            tr = table.append('tbody').append('tr').classed('odd', i % 2);
+            tr.append('td').text(datum.n);
+            tr.append('td').text(prepareZygosity(datum.z));
+            tr.append('td')
+                .text((datum.s === 1 ? 'Male' : 'Female'))
+                .attr('class', (datum.s === 1 ? 'male' : 'female') + '-specimen');
+            td = tr.append('td').attr('class', 'gross-pathology-terms');
+
+            terms = datum.v;
+            if (terms) {
+                terms = terms.split(',');
+                for (t in terms)
+                    td.append('div').text(terms[t])
+                        .classed('normal-term', terms[t] === 'normal');
+            }
+        }
+        back.style('display', 'inline-block')
+            .on('click', getGrossPathologyBackHandler(target, gid, sid, cid));
+    }
+
+    function getGrossPathologyRowClickHandler(target, gid, sid, cid, qeid, name) {
+        return function () {
+            target.select('.tabular-title').append('span').text(name);
+            target.select('.tabular-table-container')
+                .selectAll('*').remove();
+
+            var geneId = dcc.prepareGeneStrainCentreId(gid, sid, cid),
+                lookupKey = qeid + '_SIMPLE', data;
+
+            if (!measurementsSet[ZYGOSITY_ALL][geneId])
+                measurementsSet[ZYGOSITY_ALL][geneId] = {};
+            data = measurementsSet[ZYGOSITY_ALL][geneId][lookupKey];
+
+            if (data === undefined) {
+                target.classed('loading', true);
+                d3.json('rest/measurements?' +
+                    '&cid=' + cid +
+                    '&gid=' + gid +
+                    '&sid=' + sid +
+                    '&qeid=' + qeid,
+                    function (data) {
+                        if (data && data.success) {
+                            measurementsSet[ZYGOSITY_ALL][geneId][lookupKey] =
+                                data.measurements;
+
+                            displayGrossPathologyRowDetails(target, gid, sid,
+                                cid, data.measurements);
+                        } else
+                            displayNoDataWarning(target, qeid);
+                    });
+            } else {
+                displayGrossPathologyRowDetails(target, gid, sid, cid, data);
+            }
+        };
+    }
+
+    function displayGrossPathologyOverviews(target, gid, sid, cid) {
+        target.classed('loading', false);
+        target.selectAll('*').remove();
+        var title = target.append('div').attr('class', 'tabular-title'),
+            back = target.append('div').attr('class', 'tabular-back-button')
+            .text('Back').style('display', 'none'),
+            content = target.append('div').attr('class', 'tabular-table-container'),
+            table = content.append('table').attr('class', 'gross-pathology-table'),
+            h, tr, i, c, temp, count,
+            geneId = dcc.prepareGeneStrainCentreId(gid, sid, cid),
+            data = measurementsSet[ZYGOSITY_ALL][geneId]['OVERVIEWS_PAT'];
+
+        title.append('span')
+            .attr('class', 'title-gene-symbol')
+            .text(availableGenesMap[geneId].geneSymbol);
+        title.append('span')
+            .attr('class', 'title-procedure')
+            .text('Gross Pathology Overview');
+
+        h = table.append('thead');
+        tr = h.append('tr');
+        tr.append('th').attr('rowspan', 2).text('Anatomy');
+        tr.append('th').attr('colspan', 2).text('Male');
+        tr.append('th').attr('colspan', 2).text('Female');
+
+        tr = h.append('tr');
+        tr.append('th').text('Normal');
+        tr.append('th').text('Abnormal');
+        tr.append('th').text('Normal');
+        tr.append('th').text('Abnormal');
+        for (i = 0, c = data.length; i < c; ++i) {
+            temp = data[i];
+            tr = table.append('tr').classed('odd', i % 2);
+            tr.append('td').text(temp.qn);
+            if (temp.mt === undefined) {
+                tr.append('td').text('-');
+                tr.append('td').text('-');
+            } else {
+                tr.append('td').text(temp.mn)
+                    .attr('class', temp.mn === 0 ? 'zero-count' : '');
+                count = temp.mt - temp.mn;
+                tr.append('td').text(count)
+                    .attr('class', count === 0 ? 'zero-count' : '');
+            }
+            if (temp.ft === undefined) {
+                tr.append('td').text('-');
+                tr.append('td').text('-');
+            } else {
+                tr.append('td').text(temp.fn)
+                    .attr('class', temp.fn === 0 ? 'zero-count' : '');
+                count = temp.ft - temp.fn;
+                tr.append('td').text(count)
+                    .attr('class', count === 0 ? 'zero-count' : '');
+            }
+            tr.on('click', getGrossPathologyRowClickHandler(target, gid,
+                sid, cid, temp.qeid, temp.qn));
+        }
+        target.refit = function () {
+            height(content, height(target) - height(title) - height(back));
+        };
+        target.refit();
     }
 
     /**
@@ -2843,13 +3114,14 @@
      * @param {Integer} cid Centre identifier.
      * @param {String} qeid Parameter key.
      */
-    function retrieveAndVisualiseFertilityData(id, target, gid, sid, cid, qeid) {
+    function retrieveAndVisualiseFertilityData(id, target, gid, sid,
+        cid, qeid) {
         d3.json('rest/fertility?' +
             '&cid=' + cid +
             '&gid=' + gid +
             '&sid=' + sid,
-            function(data) {
-                var geneId = prepareGeneStrainCentreId(gid, sid, cid);
+            function (data) {
+                var geneId = dcc.prepareGeneStrainCentreId(gid, sid, cid);
                 if (data && data.success) {
                     /* update QC status */
                     if (!qcstatus[geneId])
@@ -2859,11 +3131,11 @@
                     if (!measurementsSet[ZYGOSITY_ALL][geneId])
                         measurementsSet[ZYGOSITY_ALL][geneId] = {};
                     measurementsSet[ZYGOSITY_ALL][geneId]['FERTILITY'] =
-                        processFertilityData(data.fertility);
-
-                    plotFertility(id, target, gid, sid, cid, qeid);
+                        data.fertility;
+                    plotTabularData(id, target, gid, sid, cid, qeid,
+                        'fertility', null);
                 } else
-                    displayNoDataWarning(target, qeid);
+                    displayNoDataWarning(target, 'OVERVIEWS_FER');
             });
     }
 
@@ -2933,7 +3205,7 @@
     function getGeneSorter(field) {
         var fn;
         if (field === SORT_BY_GENE_CENTRE)
-            fn = function(a, b) {
+            fn = function (a, b) {
                 if (a && b) {
                     a = a[field];
                     b = b[field];
@@ -2946,7 +3218,7 @@
                 }
             };
         else
-            fn = function(a, b) {
+            fn = function (a, b) {
                 if (a && b) {
                     a = a[field];
                     b = b[field];
@@ -2965,8 +3237,8 @@
      * Sorts the list of genes using the current gene sorting field.
      */
     function sortGenes() {
-        if (sorter.genes !== undefined) {
-            genes.sort(getGeneSorter(sorter.genes));
+        if (sortedBy.genes !== undefined) {
+            genes.sort(getGeneSorter(sortedBy.genes));
         }
     }
 
@@ -2978,9 +3250,9 @@
      * @param {Integer} cid Centre identifier.
      * @returns {String} Unique identifier for the gene/strain.
      */
-    function prepareGeneStrainCentreId(gid, sid, cid) {
+    dcc.prepareGeneStrainCentreId = function (gid, sid, cid) {
         return gid + '-' + sid + '-' + cid;
-    }
+    };
 
     /**
      * Returns a unique identifier for gene/strain.
@@ -2988,9 +3260,9 @@
      * @param {Object} data Contains gene/strain data.
      * @returns {String} Unique identifier for the gene/strain.
      */
-    function getGeneStrainCentreId(data) {
-        return prepareGeneStrainCentreId(data.gid, data.sid, data.cid);
-    }
+    dcc.getGeneStrainCentreId = function (data) {
+        return dcc.prepareGeneStrainCentreId(data.gid, data.sid, data.cid);
+    };
 
 
     /**
@@ -2999,7 +3271,7 @@
      * @param {Object} data Array of genes data.
      */
     function processGenes(data) {
-        var datum, i, c;
+        var datum, i, c, id;
         genes = data.genestrains;
         for (i = 0, c = genes.length; i < c; ++i) {
             datum = genes[i];
@@ -3009,7 +3281,8 @@
             datum.filter = prepareGeneSearchString(datum);
 
             /* maps genotype id to gene/strain object */
-            availableGenesMap[getGeneStrainCentreId(datum)] = datum;
+            datum.gsc = dcc.getGeneStrainCentreId(datum);
+            availableGenesMap[datum.gsc] = datum;
         }
         sortGenes();
     }
@@ -3032,13 +3305,13 @@
     }
 
     /**
-     * Returns a function that sorts the parameter list.
+     * Returns a function that compares items by supplied field.
      * 
-     * @param {String} field Which field to use for sorting.
-     * @returns {Function} Gene sorting function.
+     * @param {String} field Which field to use for comparison.
+     * @returns {Function} Comparison function.
      */
-    function getParameterSorter(field) {
-        return function(a, b) {
+    function getFieldComparator(field) {
+        return function (a, b) {
             return a[field].localeCompare(b[field]);
         };
     }
@@ -3047,9 +3320,16 @@
      * Sorts the list of parameters using the current parameter sorting field.
      */
     function sortParameters() {
-        if (sorter.parameters !== undefined) {
-            parameters.sort(getParameterSorter(sorter.parameters));
+        if (sortedBy.parameters !== undefined) {
+            parameters.sort(getFieldComparator(sortedBy.parameters));
         }
+    }
+
+    /**
+     * Sorts the list of procedure using the three letter procedure id field.
+     */
+    function sortProcedures() {
+        procedures.sort(getFieldComparator('c'));
     }
 
     /**
@@ -3058,10 +3338,13 @@
      * @param {Object} data Array of parameters data.
      */
     function processParameters(data) {
-        var datum, i, c, j, k;
+        var datum, i, c;
         parameters = data.parameters;
         for (i = 0, c = parameters.length; i < c; ++i) {
             datum = parameters[i];
+
+            if (procedureKeyToProcedureDetailsMap[datum.p[0]] === undefined)
+                continue;
 
             /* when a parameter is search using parameter key, parameter name,
              * etc., we only need to check against this single search string */
@@ -3074,20 +3357,7 @@
             parameterIdToKeyMap[datum.id] = datum.e;
 
             /* used during sorting */
-            datum.pn = proceduresMap[datum.p].n;
-
-            /* prepare category colour index */
-            if (datum.o && datum.o.length > 0) {
-                datum.o.sort(function(a, b) {
-                    return a.localeCompare(b);
-                });
-                datum.colourIndex = {
-                    'Highlighted specimen': 0
-                };
-                for (j = 0, k = datum.o.length; j < k; ++j) {
-                    datum.colourIndex[datum.o[j]] = j + 1;
-                }
-            }
+            datum.pn = procedureKeyToProcedureDetailsMap[datum.p[0]].n;
         }
         sortParameters();
     }
@@ -3099,10 +3369,12 @@
     function processProcedures(data) {
         var i, c, t;
         procedures = data.procedures;
-        proceduresMap = {}; /* maps procedure key to procedure object */
+        /* maps procedure key to procedure object */
+        procedureKeyToProcedureDetailsMap = {};
+        procedureColour = {};
         for (i = 0, c = procedures.length; i < c; ++i) {
             t = procedures[i];
-            proceduresMap[t.i] = t;
+            procedureKeyToProcedureDetailsMap[t.i] = t;
             procedureColour[t.c] = c < iWantHue.length ? iWantHue[i] :
                 '#' + (Math.random() * 0xFFFFFF << 0).toString(16);
         }
@@ -3115,9 +3387,12 @@
      * @returns {String} Comma separated string of genotype ids.
      */
     function getGeneList() {
+        if (geneList === undefined)
+            return null;
+
         var temp = '';
-        geneList.traverse(function(gene) {
-            temp += getGeneStrainCentreId(gene) + ',';
+        geneList.traverse(function (gene) {
+            temp += dcc.getGeneStrainCentreId(gene) + ',';
         });
         return temp.substring(0, temp.length - 1);
     }
@@ -3129,8 +3404,11 @@
      * @returns {Array} Comma separate string of parameter keys.
      */
     function getParameterList() {
+        if (parameterList === undefined)
+            return null;
+
         var temp = '';
-        parameterList.traverse(function(parameter) {
+        parameterList.traverse(function (parameter) {
             temp += parameter[PARAMETER_KEY_FIELD] + ',';
         });
         return temp.substring(0, temp.length - 1);
@@ -3247,7 +3525,8 @@
         m += '\nTotal matings (primary): ' + temp.matings;
         m += '\nTotal pups born (primary): ' + temp.born;
         m += '\nTotal litters (primary): ' + temp.litters;
-        m += '\nTotal pups with dissection (primary): ' + temp.dissectionEmbryos;
+        m += '\nTotal pups with dissection (primary): ' +
+            temp.dissectionEmbryos;
 
         temp = data['male'];
         m += '\nTotal matings (male screen): ' + temp.matings;
@@ -3277,34 +3556,24 @@
      */
     function prepareRawDataForDownload(geneId, parameter) {
         var measurements, data, csv, dataset, includeXAxis;
-        if (parameter.indexOf('_VIA_') !== -1) {
-            data = measurementsSet[ZYGOSITY_ALL][geneId]['VIABILITY'];
-            if (data)
-                csv = prepareViabilityData(data);
-        } else if (parameter.indexOf('_FER_') !== -1) {
-            data = measurementsSet[ZYGOSITY_ALL][geneId]['FERTILITY'];
-            if (data)
-                csv = prepareFertilityData(data);
-        } else {
-            measurements = measurementsSet[zygosity];
-            data = measurements[geneId][parameter];
-            if (data) {
-                includeXAxis = data.plottype.xl !== undefined;
+        measurements = measurementsSet[zygosity];
+        data = measurements[geneId][parameter];
+        if (data) {
+            includeXAxis = data.plottype.xl !== undefined;
 
-                /* add CSV header */
-                csv =
-                    'Animal name, Genotype, MGI Strain Id, Gender, Zygosity, ' +
-                    'Start date, ' +
-                    (includeXAxis ? data.plottype.xl + ', ' : '') +
-                    data.plottype.yl + '\n';
+            /* add CSV header */
+            csv =
+                'Animal name, Genotype, MGI Strain Id, Gender, Zygosity, '
+                + 'Start date, ' +
+                (includeXAxis ? data.plottype.xl + ', ' : '') +
+                data.plottype.yl + '\n';
 
-                dataset = data.wildtype.dataset;
-                if (dataset)
-                    csv += getCsvRawData(geneId, dataset, includeXAxis);
-                dataset = data.mutant.dataset;
-                if (dataset)
-                    csv += getCsvRawData(geneId, dataset, includeXAxis);
-            }
+            dataset = data.wildtype.dataset;
+            if (dataset)
+                csv += getCsvRawData(geneId, dataset, includeXAxis);
+            dataset = data.mutant.dataset;
+            if (dataset)
+                csv += getCsvRawData(geneId, dataset, includeXAxis);
         }
         return csv;
     }
@@ -3319,9 +3588,9 @@
      * @param {String} bookmark The bookmark URL to the visualisation.
      */
     function getRawDataDownloader(gid, sid, cid, qeid, bookmark) {
-        return function() {
+        return function () {
             preventEventBubbling();
-            var geneId = prepareGeneStrainCentreId(gid, sid, cid),
+            var geneId = dcc.prepareGeneStrainCentreId(gid, sid, cid),
                 data = prepareRawDataForDownload(geneId, qeid);
             if (data) {
                 var win = window.open('', '_blank');
@@ -3383,17 +3652,26 @@
         } else
             node.classed('annotation-warning', false);
 
-        var i = 0, c = data.length, datum, table, id, title,
+        var i = 0, annotations = data.annotations,
+            c = annotations.length, datum, table, id, title,
             header, mpterm, pvalue, effectsize, stdError,
             numMaleMutant, numFemaleMutant,
             numMaleWildtype, numFemaleWildtype,
-            geneId = prepareGeneStrainCentreId(gid, sid, cid),
+            geneId = dcc.prepareGeneStrainCentreId(gid, sid, cid),
             graphType = measurementsSet[ZYGOSITY_ALL][geneId][qeid].plottype.t,
             notCategorical = !(graphType === 'nominal'),
             mpTermBaseURL = '../data/phenotypes/';
 
         /* prepare column/row descriptions */
-        node.append('div').attr('class', 'annotation-details-hint');
+        table = node.append('div')
+            .attr('class', 'annotation-metadata')
+            .classed('outdated-annotations',
+                lastUpdate[geneId][qeid] > data.lastUpdate);
+        table.append('div').attr('class', 'measurements-date')
+            .text(dcc.dateFormat(new Date(lastUpdate[geneId][qeid])));
+        table.append('div').attr('class', 'annotations-date')
+            .text(dcc.dateFormat(new Date(data.lastUpdate)));
+
         table = node.append('table');
         header = table.append('thead').append('tr');
         mpterm = addRow(table, 'even');
@@ -3429,12 +3707,12 @@
             addMetadataGroup = true;
             for (var mi = 0, mc = mgs.groups.length; mi < mc; ++mi)
                 groupToIndex[mgs.groups[mi].g] = mi + 1;
-            data.sort(function(a, b) {
+            annotations.sort(function (a, b) {
                 return groupToIndex[a.mg] > groupToIndex[b.mg];
             });
         }
         while (i < c) {
-            datum = data[i++];
+            datum = annotations[i++];
             if (!datum)
                 continue;
             switch (datum.z) {
@@ -3456,7 +3734,7 @@
             }
 
             addZygosityHeader(header, id, title);
-            if (datum.p < dcc.pvalueThreshold) {
+            if (datum.p < dcc.pvalueThreshold && datum.mp1) {
                 addColumn(mpterm, datum.mp1.description,
                     mpTermBaseURL + datum.mp1.mpTerm)
                     .attr('class', 'outcome-' + datum.mp1.outcome);
@@ -3483,7 +3761,9 @@
             + (groupIdx === undefined ? '"><td>' :
                 '"><td class="metadata-group-idx">'
                 + (groupIdx + 1) + '</td><td>')
-            + key + '</td><td>' + value + '</td></tr>';
+            + key + '</td><td>'
+            + (value === undefined ? 'missing - not supplied' : value)
+            + '</td></tr>';
     }
 
     function getMetadataValuesHeader(title, showGroup) {
@@ -3503,23 +3783,26 @@
             return '<div class="metadata-details-warning">'
                 + 'Metadata required for analysis are unavailable</div>';
 
+        /* set the common values */
         for (var grp in mg.groups) {
             var keyValues = mg.groups[grp].v;
             for (var key in keyValues) {
-                if (mg.diffSet[key]) {
-                    diffValues += getMetadataValuesRow(diffRowCount++,
-                        key, keyValues[key], groupCount);
-                } else {
-                    if (!common[key]) {
-                        common[key] = 1;
-                        commonValues += getMetadataValuesRow(commonRowCount++,
-                            key, keyValues[key]);
-                    }
-                }
+                if (!mg.diffSet[key])
+                    commonValues += getMetadataValuesRow(commonRowCount++,
+                        key, keyValues[key]);
             }
-            groupCount++;
         }
         commonValues += '</tbody></table>';
+
+        /* set differing values */
+        for (var key in mg.diffSet) {
+            for (var grp in mg.groups) {
+                var keyValues = mg.groups[grp].v;
+                diffValues += getMetadataValuesRow(diffRowCount++,
+                    key, keyValues[key], groupCount);
+                groupCount++;
+            }
+        }
         diffValues += '</tbody></table>';
 
         if (diffRowCount > 0)
@@ -3534,37 +3817,38 @@
             content = target.append('div').attr('class', 'details-panel');
 
         selector.selectAll('div').data(panels).enter().append('div')
-            .classed('active-panel', function(d) {
+            .classed('active-panel', function (d) {
                 return panels[0] === d; /* auto select first */
             })
-            .text(function(d) {
+            .text(function (d) {
                 return d;
             })
-            .on('click', function(d) {
+            .on('click', function (d) {
                 var selected = d3.select(this), datum = selected.datum(),
                     tabs = selector.selectAll('div'),
                     contents = content.selectAll('[class*="panel-content-"]');
-                tabs.classed('active-panel', function(d) {
+                tabs.classed('active-panel', function (d) {
                     return datum === d;
                 });
 
                 contents.classed('hidden', true);
-                contents.filter(function(d) {
+                contents.filter(function (d) {
                     return datum === d;
                 }).classed('hidden', false);
             });
 
         content.selectAll('div').data(panels).enter().append('div')
-            .attr('class', function(d) {
+            .attr('class', function (d) {
                 return 'panel-content-' + d;
             })
-            .classed('hidden', function(d) {
+            .classed('hidden', function (d) {
                 return panels[0] !== d; /* hide content except for the first */
             });
     }
 
     function createFurtherDetailsPanel(target) {
         var node = target.append('div').attr('class', 'further-details');
+        node.append('div').attr('class', 'parameter-details');
         createTabbedPanels(node, ['Annotation', 'Metadata']);
         refitFurtherDetailsPanel(target);
         return node;
@@ -3597,13 +3881,13 @@
             '&gid=' + gid +
             '&sid=' + sid +
             '&qeid=' + qeid,
-            function(data) {
+            function (data) {
                 var node = target.select('.further-details'),
-                    geneId = prepareGeneStrainCentreId(gid, sid, cid),
-                    annotationDetails = node.select('.panel-content-Annotation');
+                    geneId = dcc.prepareGeneStrainCentreId(gid, sid, cid),
+                    annotationDetails = node
+                    .select('.panel-content-Annotation');
                 node.classed('loading', false);
                 if (data && data.success) {
-                    data = data.annotations;
                     if (!annotations[geneId])
                         annotations[geneId] = {};
                     annotations[geneId][qeid] = data;
@@ -3626,7 +3910,11 @@
      */
     function displayStatisticsInformation(target, gid, sid, cid, qeid) {
         var annotation, node = target.select('.panel-content-Annotation'),
-            geneId = prepareGeneStrainCentreId(gid, sid, cid);
+            geneId = dcc.prepareGeneStrainCentreId(gid, sid, cid);
+
+        d3.select(node.node().parentNode.parentNode)
+            .select('.parameter-details')
+            .text('Parameter key: ' + qeid);
 
         /* do we have annotation for this genotype? */
         if (annotations[geneId]) {
@@ -3655,6 +3943,47 @@
         addDiv(node, null, 'warn-message',
             'No ' + (what ? what : 'measurements') +
             ' for the following context');
+        if (param === undefined) {
+            switch (parameterKey) {
+                case 'OVERVIEWS_ALZ':
+                    param = {
+                        'pn': 'Adult LacZ',
+                        'n': 'Expression Overview'
+                    };
+                    break;
+                case 'OVERVIEWS_PAT':
+                    param = {
+                        'pn': 'Gross Pathology',
+                        'n': 'Normality Overview'
+                    };
+                    break;
+                case 'OVERVIEWS_FER':
+                    param = {
+                        'pn': 'Adult Fertility',
+                        'n': 'Fertility Overview'
+                    };
+                    break;
+                case 'OVERVIEWS_PAT':
+                    param = {
+                        'pn': 'Adult Viability',
+                        'n': 'Viability Overview'
+                    };
+                    break;
+                case 'OVERVIEWS_GEP':
+                    param = {
+                        'pn': 'Gross Morphology Embryo',
+                        'n': 'Expression Overview'
+                    };
+                    break;
+                case 'OVERVIEWS_GPM':
+                    param = {
+                        'pn': 'Gross Morphology Placenta',
+                        'n': 'Expression Overview'
+                    };
+                    break;
+            }
+            param.e = 'N/A (procedure-level data)';
+        }
         addDiv(node, null, 'warn-procedure', param.pn);
         addDiv(node, null, 'warn-parameter', param.n);
         addDiv(node, null, 'warn-parameter-key', param.e);
@@ -3682,8 +4011,7 @@
 
         /**
          * To simplify visualisation code, assume that wildtype data is mutant
-         * data if we are only visualising wildtype.
-         */
+         * data if we are only visualising wildtype. */
         if (isWildtype)
             mutantDataset = wildtypeDataset;
 
@@ -3696,23 +4024,26 @@
         switch (plotType.t) {
             case 'series':
                 mutantStatistics =
-                    calculateStatistics(mutantDataset, 'a', 'x', 'y', 'e', 'a', 'm');
+                    calculateStatistics(mutantDataset, 'a', 'x', 'y',
+                        'e', 'a', 'm');
                 if (!isWildtype)
                     wildtypeStatistics =
-                        calculateStatistics(wildtypeDataset, 'a', 'x', 'y', 'e', 'a', 'm');
+                        calculateStatistics(wildtypeDataset, 'a', 'x', 'y',
+                            'e', 'a', 'm');
                 break;
 
             case 'point':
                 mutantStatistics =
-                    calculateStatistics(mutantDataset, 'a', 'd', 'y', 'e', 'a', 'm');
+                    calculateStatistics(mutantDataset, 'a', 'd', 'y',
+                        'e', 'a', 'm');
                 if (!isWildtype)
                     wildtypeStatistics =
-                        calculateStatistics(wildtypeDataset, 'a', 'd', 'y', 'e', 'a', 'm');
+                        calculateStatistics(wildtypeDataset, 'a', 'd', 'y',
+                            'e', 'a', 'm');
                 break;
 
             case 'nominal':
-                temp = mutantDataset.concat(wildtypeDataset);
-                mutantStatistics = processCategorical(temp);
+                mutantStatistics = processCategorical(data);
                 wildtypeStatistics = undefined;
                 break;
         }
@@ -3762,6 +4093,26 @@
         }
     }
 
+
+    function addAssociatedMediaButton(target, geneId, gid, sid, cid, qeid) {
+        var media = associatedMedia[geneId][qeid], q;
+        if (media && media.k) {
+            q = target.parameter;
+            addDiv(target.select('.viz-svg-container'),
+                null, 'show-media-button', 'Show media')
+                .on('click', getImageViewerHandler('#content',
+                    cid, gid, sid, media.k, "Associated media for "
+                    + q.pn + ' - ' + q.n, media.n + ' - ' + media.k, qeid));
+        }
+    }
+
+    function addBasketButton(target, geneId, qeid) {
+        var handler = dcc.getVisualisationBasket(geneId, qeid);
+        addDiv(target.select('.viz-svg-container'), null, handler.cls)
+            .attr('title', handler.title)
+            .on('click', handler.onclick);
+    }
+
     /**
      * Visualise the measurements by instantiating a visualistion object, and
      * also update the QC status and the statistical annotations panel.
@@ -3775,10 +4126,16 @@
      */
     function visualiseData(id, target, gid, sid, cid, qeid) {
         target.classed('loading', false);
-        dcc.viz[id] = new Visualisation(id, target, gid, sid, cid, qeid, true);
-        dcc.viz[id].refresh();
-        updateQcStatus(prepareGeneStrainCentreId(gid, sid, cid), qeid);
-        var geneId = prepareGeneStrainCentreId(gid, sid, cid);
+        target.viz = new Visualisation(id, target, gid, sid, cid, qeid, true);
+        target.viz.refresh();
+        var geneId = dcc.prepareGeneStrainCentreId(gid, sid, cid);
+        updateQcStatus(geneId, qeid);
+        addAssociatedMediaButton(target, geneId, gid, sid, cid, qeid);
+
+        /* only allow addition of gene/parameter combination in preview mode */
+        if (dcc.transientGeneParameter !== undefined)
+            addBasketButton(target, geneId, qeid);
+
         displayMetadata(target, geneId, qeid);
         displayStatisticsInformation(target, gid, sid, cid, qeid);
     }
@@ -3818,6 +4175,63 @@
         };
     }
 
+    function processRawDataAndQcStatus(data, gid, sid, cid, qeid) {
+        var measurementGroups,
+            geneId = dcc.prepareGeneStrainCentreId(gid, sid, cid);
+
+        /* set associated media */
+        if (!associatedMedia[geneId])
+            associatedMedia[geneId] = {};
+        associatedMedia[geneId][qeid] = data.associatedMedia;
+
+        /* update QC status */
+        if (!qcstatus[geneId])
+            qcstatus[geneId] = {};
+        qcstatus[geneId][qeid] = data.qcStatus;
+
+        /* last time when measurements were updated */
+        if (!lastUpdate[geneId])
+            lastUpdate[geneId] = {};
+        lastUpdate[geneId][qeid] = data.lastUpdate;
+
+        /* update metadata groups */
+        if (!metadataGroups[geneId])
+            metadataGroups[geneId] = {};
+        metadataGroups[geneId][qeid] = {};
+        metadataGroups[geneId][qeid].diffSet =
+            prepareMetadataGroups(data.metadataGroups);
+        metadataGroups[geneId][qeid].groups = data.metadataGroups;
+
+        /* process without filtering for zygosity */
+        if (!measurementsSet[ZYGOSITY_ALL][geneId])
+            measurementsSet[ZYGOSITY_ALL][geneId] = {};
+        measurementsSet[ZYGOSITY_ALL][geneId][qeid] =
+            processMeasurements(data.measurements, gid, qeid);
+
+        /* split data set by zygosity */
+        measurementGroups =
+            groupMeasurementsByZygosity(data.measurements);
+
+        /* process heterozygous dataset */
+        if (!measurementsSet[ZYGOSITY_HET][geneId])
+            measurementsSet[ZYGOSITY_HET][geneId] = {};
+        measurementsSet[ZYGOSITY_HET][geneId][qeid] =
+            processMeasurements(measurementGroups.het, gid, qeid);
+
+        /* process homozygous dataset */
+        if (!measurementsSet[ZYGOSITY_HOM][geneId])
+            measurementsSet[ZYGOSITY_HOM][geneId] = {};
+        measurementsSet[ZYGOSITY_HOM][geneId][qeid] =
+            processMeasurements(measurementGroups.hom, gid, qeid);
+
+        /* process hemizygous dataset */
+        if (!measurementsSet[ZYGOSITY_HEM][geneId])
+            measurementsSet[ZYGOSITY_HEM][geneId] = {};
+        measurementsSet[ZYGOSITY_HEM][geneId][qeid] =
+            processMeasurements(measurementGroups.hem, gid, qeid);
+
+    }
+
     /**
      * Retrieves raw measurements from the server and displays them in the
      * visualisation cluster. All calculations are also cached for future
@@ -3836,64 +4250,24 @@
             '&gid=' + gid +
             '&sid=' + sid +
             '&qeid=' + qeid,
-            function(data) {
-                var measurementGroups,
-                    geneId = prepareGeneStrainCentreId(gid, sid, cid);
+            function (data) {
                 if (data && data.success) {
-                    /* update QC status */
-                    if (!qcstatus[geneId])
-                        qcstatus[geneId] = {};
-                    qcstatus[geneId][qeid] = data.qcStatus;
-
-                    /* update metadata groups */
-                    if (!metadataGroups[geneId])
-                        metadataGroups[geneId] = {};
-                    metadataGroups[geneId][qeid] = {};
-                    metadataGroups[geneId][qeid].diffSet =
-                        prepareMetadataGroups(data.metadataGroups);
-                    metadataGroups[geneId][qeid].groups = data.metadataGroups;
-
-                    /* process without filtering for zygosity */
-                    if (!measurementsSet[ZYGOSITY_ALL][geneId])
-                        measurementsSet[ZYGOSITY_ALL][geneId] = {};
-                    measurementsSet[ZYGOSITY_ALL][geneId][qeid] =
-                        processMeasurements(data.measurements, gid, qeid);
-
-                    /* split data set by zygosity */
-                    measurementGroups =
-                        groupMeasurementsByZygosity(data.measurements);
-
-                    /* process heterozygous dataset */
-                    if (!measurementsSet[ZYGOSITY_HET][geneId])
-                        measurementsSet[ZYGOSITY_HET][geneId] = {};
-                    measurementsSet[ZYGOSITY_HET][geneId][qeid] =
-                        processMeasurements(measurementGroups.het, gid, qeid);
-
-                    /* process homozygous dataset */
-                    if (!measurementsSet[ZYGOSITY_HOM][geneId])
-                        measurementsSet[ZYGOSITY_HOM][geneId] = {};
-                    measurementsSet[ZYGOSITY_HOM][geneId][qeid] =
-                        processMeasurements(measurementGroups.hom, gid, qeid);
-
-                    /* process hemizygous dataset */
-                    if (!measurementsSet[ZYGOSITY_HEM][geneId])
-                        measurementsSet[ZYGOSITY_HEM][geneId] = {};
-                    measurementsSet[ZYGOSITY_HEM][geneId][qeid] =
-                        processMeasurements(measurementGroups.hem, gid, qeid);
-
+                    processRawDataAndQcStatus(data, gid, sid, cid, qeid);
                     visualiseData(id, target, gid, sid, cid, qeid);
                 } else
                     displayNoDataWarning(target, qeid);
             });
     }
 
-    function getImageViewerHandler(id, cid, gid, sid, pid, qid, xl, yl) {
-        return function() {
+    function getImageViewerHandler(id, cid, gid, sid, qeid,
+        xl, yl, filterKey) {
+        return function () {
             d3.select('#sidebar').style('display', 'none');
             refitContent();
-            d3.select(id).append('div').attr('id', 'imageviewer');
             var centre = centresMap[cid],
-                gene = availableGenesMap[prepareGeneStrainCentreId(gid, sid, cid)];
+                geneId = dcc.prepareGeneStrainCentreId(gid, sid, cid),
+                gene = availableGenesMap[geneId];
+            d3.select(id).append('div').attr('id', 'imageviewer');
             dcc.imageViewer = new dcc.ComparativeImageViewer('imageviewer',
                 {
                     splitType: 'vertical',
@@ -3901,22 +4275,28 @@
                         '<span>' + gene.strain + '</span>' +
                         '<span>' + gene.alleleName + '</span>' +
                         '<span>' + xl + '</span>' + yl,
-                    /* 'imageviewer' is an instance of 'phenodcc-imaging-display'
+                    shortTitle: '<span>' + gene.alleleName + '</span>' + yl,
+                    /* 'imageviewer' is an instance of
+                     * 'phenodcc-imaging-display'
                      * project hosted on the same server as Phenoview. */
                     host: '/imageviewer/',
-                    exitHandler: function() {
+                    filter: filterKey, /* filter by associated parameter */
+                    exitHandler: function () {
                         d3.select('#imageviewer').remove();
                         d3.select('#sidebar').style('display', 'block');
                         refitContent();
                     }
                 });
-            dcc.imageViewer.view(cid, gid, sid, pid, qid);
+            dcc.imageViewer.view(cid, gid, sid, qeid);
+            if (highlightedSpecimen !== -1)
+                dcc.imageViewer.selectSpecimen(highlightedSpecimen);
         };
     }
 
     function getImagingContextDetail(parameter) {
         var html = '<table><tbody>';
-        html += '<tr><td>Procedure:</td><td>' + proceduresMap[parameter[PROCEDURE_ID_FIELD]].n + '</td></tr>';
+        html += '<tr><td>Procedure:</td><td>' +
+            procedureKeyToProcedureDetailsMap[parameter[PROCEDURE_ID_FIELD][0]].n + '</td></tr>';
         html += '<tr><td>Parameter:</td><td>' + parameter[PARAMETER_NAME_FIELD] + '</td></tr>';
         html += '<tr><td>Parameter key:</td><td>' + parameter[PARAMETER_KEY_FIELD] + '</td></tr>';
         return html + '</tbody></table>';
@@ -3927,11 +4307,9 @@
             sid = target.strain,
             cid = target.centre,
             parameter = target.parameter,
-            pid = parameter[PROCEDURE_ID_FIELD],
-            qid = parameter[PARAMETER_ID_FIELD],
             qeid = parameter[PARAMETER_KEY_FIELD],
             plotType = target.plotType,
-            data, geneId = prepareGeneStrainCentreId(gid, sid, cid);
+            data, geneId = dcc.prepareGeneStrainCentreId(gid, sid, cid);
 
         if (plotType.t === STR_IMAGE) {
             target.classed('loading', false);
@@ -3942,27 +4320,49 @@
                 .attr('class', 'start-image-viewer')
                 .text('Click to view media')
                 .on('click', getImageViewerHandler('#content',
-                    cid, gid, sid, pid, qid, plotType.l, plotType.yl));
+                    cid, gid, sid, qeid, plotType.l, plotType.yl));
         } else {
             if (dcc.imageViewer) {
                 dcc.imageViewer.clear();
                 dcc.imageViewer = null;
             }
-            if (qeid.indexOf('_VIA_') !== -1) {
-                retrieveAndVisualiseViabilityData(id, target, gid, sid, cid, qeid);
-            } else if (qeid.indexOf('_FER_') !== -1) {
-                retrieveAndVisualiseFertilityData(id, target, gid, sid, cid, qeid);
+            var embryoStage = null;
+            if (qeid === undefined) {
+                if (parameter.indexOf('OVERVIEWS_PAT') !== -1)
+                    retrieveAndVisualiseGrossPathologyOverviews(id, target,
+                        gid, sid, cid, qeid);
+                if (parameter.indexOf('OVERVIEWS_ALZ') !== -1)
+                    retrieveAndVisualiseLacZOverviews(id, target, gid, sid, cid);
+                if (parameter.indexOf('OVERVIEWS_FER') !== -1)
+                    retrieveAndVisualiseFertilityData(id, target, gid, sid,
+                        cid, qeid);
+                if (parameter.indexOf('OVERVIEWS_VIA') !== -1)
+                    retrieveAndVisualiseViabilityData(id, target, gid, sid,
+                        cid, qeid, null);
+                if (parameter.indexOf('OVERVIEWS_GEP') !== -1)
+                    retrieveAndVisualiseGrossMorphologyOverviews(id, target,
+                        gid, sid, cid, 'OVERVIEWS_GEP');
+                if (parameter.indexOf('OVERVIEWS_GPM') !== -1)
+                    retrieveAndVisualiseGrossMorphologyOverviews(id, target,
+                        gid, sid, cid, 'OVERVIEWS_GPM');
             } else {
-                /* do we have data for this genotype? */
-                if (measurementsSet[zygosity][geneId]) {
-                    /* do we have data for this parameter */
-                    data = measurementsSet[zygosity][geneId][qeid];
-                    if (data)
-                        visualiseData(id, target, gid, sid, cid, qeid);
-                    else
+                embryoStage = getEmbryoStage(qeid);
+                if (embryoStage) {
+                    retrieveAndVisualiseEmbryoViabilityData(id, target, gid,
+                        sid, cid, qeid, embryoStage);
+                } else {
+                    /* do we have data for this genotype? */
+                    if (measurementsSet[zygosity][geneId]) {
+                        /* do we have data for this parameter */
+                        data = measurementsSet[zygosity][geneId][qeid];
+                        if (data)
+                            visualiseData(id, target, gid, sid, cid, qeid);
+                        else
+                            retrieveAndVisualiseData(id, target, gid,
+                                sid, cid, qeid);
+                    } else
                         retrieveAndVisualiseData(id, target, gid, sid, cid, qeid);
-                } else
-                    retrieveAndVisualiseData(id, target, gid, sid, cid, qeid);
+                }
             }
         }
     }
@@ -4021,23 +4421,23 @@
     function svgMouseventHandler(viz) {
         var svg = viz.state.n.v, xhair = svg.xhair,
             extend = viz.dim.p * 1 / 4 - 1;
-        svg.on('click', function() {
+        svg.on('click', function () {
             hideInformationBox();
         })
             .on('mouseover',
-                function() {
+                function () {
                     preventEventBubbling();
                     if (xhair)
                         xhair.style('opacity', 1);
                 })
             .on('mouseout',
-                function() {
+                function () {
                     preventEventBubbling();
                     if (xhair)
                         xhair.style('opacity', 0);
                 })
             .on('mousemove',
-                function() {
+                function () {
                     preventEventBubbling();
                     var bmc = getBoundedMouseCoordinate(viz);
 
@@ -4139,34 +4539,61 @@
         /* show data points? */
         if (displayDataPoint) {
             switch (shape) {
+                case 't': /* text symbol */
+                    db.enter()
+                        .append('text')
+                        .attr('mg', function (d) {
+                            return d.e; /* metadata group */
+                        })
+                        .attr('mid', function (d) {
+                            return d.m; /* measurement id */
+                        })
+                        .attr('aid', function (d) {
+                            return d.a; /* animal id */
+                        })
+                        .attr('x',
+                            function (d) {
+                                return d.sx;
+                            })
+                        .attr('y',
+                            function (d) {
+                                return d.sy;
+                            })
+                        .text(size)
+                        .attr('class', function (d) {
+                            return viz.state.q[d.m] ? 'selected' : null;
+                        })
+                        .on('click', dataPointClickHandler);
+                    break;
+
                 case 'c': /* draw circle */
                     db.enter()
                         .append('circle')
-                        .attr('mg', function(d) {
+                        .attr('mg', function (d) {
                             return d.e; /* metadata group */
                         })
-                        .attr('mid', function(d) {
+                        .attr('mid', function (d) {
                             return d.m; /* measurement id */
                         })
-                        .attr('aid', function(d) {
+                        .attr('aid', function (d) {
                             return d.a; /* animal id */
                         })
                         .attr('r', size)
                         .attr('cx',
-                            function(d) {
+                            function (d) {
                                 return d.sx;
                             })
                         .attr('cy',
-                            function(d) {
+                            function (d) {
                                 return d.sy;
                             })
-                        .attr('class', function(d) {
+                        .attr('class', function (d) {
                             return viz.state.q[d.m] ? 'selected' : null;
                         })
-                        .on('mouseup', function() {
+                        .on('mouseup', function () {
                             preventEventBubbling();
                         })
-                        .on('mousedown', function() {
+                        .on('mousedown', function () {
                             preventEventBubbling();
                         })
                         .on('click', dataPointClickHandler);
@@ -4175,32 +4602,32 @@
                 case 's': /* draw square */
                     db.enter()
                         .append('rect')
-                        .attr('mg', function(d) {
+                        .attr('mg', function (d) {
                             return d.e; /* metadata group */
                         })
-                        .attr('mid', function(d) {
+                        .attr('mid', function (d) {
                             return d.m; /* measurement id */
                         })
-                        .attr('aid', function(d) {
+                        .attr('aid', function (d) {
                             return d.a; /* animal id */
                         })
                         .attr('width', size * 2)
                         .attr('height', size * 2)
                         .attr('x',
-                            function(d) {
+                            function (d) {
                                 return d.sx - size + displacement;
                             })
                         .attr('y',
-                            function(d) {
+                            function (d) {
                                 return d.sy - size;
                             })
-                        .attr('class', function(d) {
+                        .attr('class', function (d) {
                             return viz.state.q[d.m] ? 'selected' : null;
                         })
-                        .on('mouseup', function() {
+                        .on('mouseup', function () {
                             d3.event.stopPropagation();
                         })
-                        .on('mousedown', function() {
+                        .on('mousedown', function () {
                             d3.event.stopPropagation();
                         })
                         .on('click', dataPointClickHandler);
@@ -4227,32 +4654,32 @@
             .data(dataset).enter()
             .append('circle')
             .attr('class',
-                function(d) {
+                function (d) {
                     return d.s === 1 ? 'male' : 'female';
                 })
             .attr('mg',
-                function(d) {
+                function (d) {
                     return d.e; /* metadata group */
                 })
             .attr('mid',
-                function(d) {
+                function (d) {
                     return d.m; /* measurement id */
                 })
             .attr('aid',
-                function(d) {
+                function (d) {
                     return d.a; /* animal id */
                 })
             .attr('r', radius)
             .attr('cx',
-                function(d) {
+                function (d) {
                     return d.sx;
                 })
             .attr('cy',
-                function(d) {
+                function (d) {
                     return d.sy;
                 })
             .on('click', onClick)
-            .classed('highlight', function(d) {
+            .classed('highlight', function (d) {
                 return d.a === highlightedSpecimen;
             });
     }
@@ -4296,21 +4723,8 @@
             swarm = new Beeswarm(maleData, xScale(maleAxis), radius);
             plotSwarm(swarm.swarm(0, SWARM_BOUND), g, 'male', radius, onClick);
             swarm = new Beeswarm(femaleData, xScale(femaleAxis), radius);
-            plotSwarm(swarm.swarm(0, SWARM_BOUND), g, 'female', radius, onClick);
-        }
-    }
-
-    /**
-     * Each visuslisation container stores a visibility flag. The following
-     * method refreshes visualisations that are visible by re-rendering the
-     * visualisation.
-     */
-    function refreshVisibleVisualisations() {
-        var id, viz, vizs = dcc.viz;
-        for (var id in vizs) {
-            viz = vizs[id];
-            if (viz.container.isVisible)
-                viz.refresh();
+            plotSwarm(swarm.swarm(0, SWARM_BOUND), g, 'female',
+                radius, onClick);
         }
     }
 
@@ -4327,7 +4741,7 @@
             highlightedSpecimen = -1;
         else
             highlightedSpecimen = animalId;
-        refreshVisibleVisualisations();
+        refreshVisualisationCluster(true);
     }
 
     /**
@@ -4337,38 +4751,58 @@
      * @param {Object} viz The visualisation object.
      */
     function getDatapointOnMouseClickHandler(viz) {
-        return function(datapoint) {
+        return function (datapoint) {
             preventEventBubbling();
             highlightSpecimen(datapoint.a);
             relocateInformationBox(getBoundedMouseCoordinate(viz));
             d3.json('rest/specimens/' + datapoint.a,
-                function(data) {
+                function (data) {
                     if (data.success === true) {
-                        var datum = data.specimens[0],
-                            iconCls = prepareSex(datum.sex) + '-'
-                            + prepareZygosity(datum.homozygous);
-
-                        informationBox
-                            .html(prepareInfo(datum, datapoint, viz.ptype))
-                            .attr('class', iconCls);
+                        var datum = data.specimens[0];
+                        if (datum === null || datum === undefined) {
+                            informationBox
+                                .html("Embryo specimen (details currently unavailable)");
+                        } else {
+                            var iconCls = prepareSex(datum.sex) + '-'
+                                + prepareZygosity(datum.homozygous);
+                            informationBox
+                                .html(prepareInfo(datum, datapoint, viz.ptype))
+                                .attr('class', iconCls);
+                        }
                     }
                 });
         };
     }
 
     function prepareMetadataGroups(mgs) {
-        if (!mgs || mgs.length === 0)
-            return null;
+        if (!mgs || mgs.length < 2)
+            return {};
 
         var diffSet = {}, keyValues = {}, i, c, key;
-        for (i in mgs)
-            mgs[i].v = JSON.parse('{' + mgs[i].v + '}');
-        for (key in mgs[0].v)
-            keyValues[key] = mgs[0].v[key];
-        for (i = 1, c = mgs.length; i < c; ++i)
-            for (key in mgs[i].v)
-                if (keyValues[key] !== mgs[i].v[key])
-                    diffSet[key] = 1;
+        for (key in mgs[0].v) {
+            keyValues[key] = {
+                'c': 1, /* how many share the same key */
+                'v': mgs[0].v[key] /* for value diff */
+            };
+        }
+        for (i = 1, c = mgs.length; i < c; ++i) {
+            for (key in mgs[i].v) {
+                if (diffSet[key] === 1)
+                    continue; /* key already marked as different */
+                /* is this key appearing for the first time in this group? */
+                else if (keyValues[key] === undefined)
+                    diffSet[key] = 1; /* mark this key as different */
+                else if (keyValues[key].v !== mgs[i].v[key])
+                    diffSet[key] = 1; /* values are different */
+                else
+                    keyValues[key].c += 1; /* key found in metadata group */
+
+            }
+        }
+        /* are any keys from the first group not in any of the others? */
+        for (key in keyValues)
+            if (diffSet[key] !== 1 && keyValues[key].c === 1)
+                diffSet[key] = 1;
         return diffSet;
     }
 
@@ -4377,11 +4811,14 @@
         for (key in data)
             if (diffSet[key])
                 msg += "<tr><td>" + key + "</td><td>" + data[key] + "</td></tr>";
+        for (key in diffSet)
+            if (data[key] === undefined)
+                msg += "<tr><td>" + key + "</td><td>missing - not supplied</td></tr>";
         return msg + "</tbody></table>";
     }
 
     function getMetadataGroupFilter(metadataGroup, includeMatching) {
-        return function(d, i) {
+        return function (d, i) {
             return (d.e === metadataGroup && includeMatching) ||
                 (d.e !== metadataGroup && !includeMatching);
         };
@@ -4410,7 +4847,7 @@
     }
 
     function getMetadataGroupMouseOverHandler(viz, diffSet) {
-        return function(metadataGroup) {
+        return function (metadataGroup) {
             preventEventBubbling();
             relocateInformationBox(getBoundedMouseCoordinate(viz));
             informationBox.html(prepareMetadataGroupInfo(metadataGroup.v, diffSet))
@@ -4420,23 +4857,10 @@
     }
 
     function getMetadataGroupMouseOutHandler(viz) {
-        return function(metadataGroup) {
+        return function (metadataGroup) {
             preventEventBubbling();
             hideInformationBox();
             setOpacityNonMetadataGroupDatapoints(viz, metadataGroup.i, 1);
-        };
-    }
-
-    /**
-     * Returns a generic event handler that is activated when the mouse
-     * moves over a data point.
-     *
-     * @param {Object} viz The visualisation object.
-     */
-    function getDatapointOnMouseMoveHandler(viz) {
-        return function(datapoint) {
-            d3.event.stopPropagation();
-            relocateInformationBox(getBoundedMouseCoordinate(viz));
         };
     }
 
@@ -4527,7 +4951,10 @@
         containerDomNode.selectAll('.wildtype-datapoints').remove();
         viz.showDataPoints();
 
-        viz.legends();
+        if (viz.isActiveCtrl('shapes') && viz.type !== 'series')
+            viz.legendsShapes();
+        else
+            viz.legends();
         viz.title();
         viz.xaxis();
         viz.yaxis();
@@ -4540,9 +4967,20 @@
      *
      * @param {Object} viz The visualisation object.
      * @param {Object} data Contains category, percentage and labels.
+     * @param {String} gender Gender information.
      */
-    function onSegmentMouseOver(viz, data) {
-        var suffix = data.l + (data.g ? ' male' : ' female') +
+    function onSegmentMouseOver(viz, data, gender) {
+        gender = gender.toLowerCase();
+        if (gender === 'no data' || gender === 'n')
+            gender = '(gender - no data)';
+        if (gender === 'm')
+            gender = 'male';
+        if (gender === 'f')
+            gender = 'female';
+        if (gender === 'i')
+            gender = 'intersex';
+        gender = ' ' + gender;
+        var suffix = data.l + gender +
             ' specimens belong to the <b>' + data.c + '</b> category';
         d3.event.stopPropagation();
         relocateInformationBox(getBoundedMouseCoordinate(viz));
@@ -4562,53 +5000,13 @@
     }
 
     /**
-     * To make segment column charts aesthetically pleasing, we use gradients.
-     * This method return SVG segments that provide gradient fills.
-     * 
-     * @param {type} svg SVG node that will contains the column plots.
-     * @param {type} index Index of the category in the array colour array.
-     * @returns {String} Gradient segment to use.
-     */
-    function getGradient(svg, index) {
-        var id = "gradient-" + index,
-            baseColour = segmentGradient[index],
-            rgbColour = d3.rgb(baseColour),
-            gradient = svg.append("svg:defs")
-            .append("svg:linearGradient")
-            .attr("id", id)
-            .attr("x1", "0%")
-            .attr("y1", "0%")
-            .attr("x2", "100%")
-            .attr("y2", "0%")
-            .attr("spreadMethod", "pad");
-
-        gradient.append("svg:stop")
-            .attr("offset", "0%")
-            .attr("stop-color", rgbColour.brighter(0.8).toString())
-            .attr("stop-opacity", 1);
-
-        gradient.append("svg:stop")
-            .attr("offset", "5%")
-            .attr("stop-color", baseColour)
-            .attr("stop-opacity", 1);
-
-        gradient.append("svg:stop")
-            .attr("offset", "90%")
-            .attr("stop-color", rgbColour.darker(0.5).toString())
-            .attr("stop-opacity", 1);
-
-        return 'url(#' + id + ')';
-    }
-
-    /**
      * Convert category percentages to segmented column specifications.
      * 
      * @param {Real} datum Object with array of category percentages.
      * @param {Object} spec Specification of the segmented column container.
-     * @param {Boolean} isMale True if male segments; otherwise, female.
      * @returns {Object} Array of segmented column specifications.
      */
-    function convertPercentagesToSegmentSpec(datum, spec, isMale) {
+    function convertPercentagesToSegmentSpec(datum, spec) {
         var percentage, percentages = datum.s, category, segments = [],
             height = spec.ch * 0.01; /* converts percentage to height */
 
@@ -4619,10 +5017,10 @@
                 'p': percentage,
                 'h': percentage * height,
                 'y': 0,
-                's': categoryColourIndex[category], /* style index */
+                's': categoryColourIndex[category],
                 'l': spec.l, /* grid label for segment detail */
                 't': datum.t, /* total number of specimens */
-                'g': isMale /* true if male; false otherwise */
+                'g': datum.s
             });
         }
         return segments;
@@ -4646,15 +5044,15 @@
      * Plots a segmented column with the supplied percentages.
      *
      * @param {Object} viz Visualisation object.
-     * @param {Boolean} isMale True if male; otherwise, female.
+     * @param {Boolean} gender String for gender.
      * @param {Object} datum Category frequency total and percentages.
      * @param {Integer} x x-coordinate of segmented column bottom-left.
      * @param {Integer} y y-coordinate of segmented column bottom-left.
      * @param {Object} spec Specification for plotting each grid cell.
      */
-    function plotSegmentColumn(viz, isMale, datum, x, y, spec) {
+    function plotSegmentColumn(viz, gender, datum, x, y, spec) {
         var svg = viz.state.n.s, i, c, db, width = spec.cw,
-            segments = convertPercentagesToSegmentSpec(datum, spec, isMale);
+            segments = convertPercentagesToSegmentSpec(datum, spec);
 
         c = segments.length;
         if (c > 0) {
@@ -4669,7 +5067,7 @@
             showSegmentedColumnTotalAndGender(svg,
                 x + 0.5 * width,
                 segments[c - 1].y - .5 * spec.tp,
-                datum.t, isMale ? 'Male' : 'Female');
+                datum.t, gender);
         }
 
         /* plot a segment for each category percentage */
@@ -4678,26 +5076,23 @@
         db.exit().remove();
         db.enter().append('rect')
             .attr('x', x)
-            .attr('y', function(d) {
+            .attr('y', function (d) {
                 return d.y;
             })
             .attr('width', width)
-            .attr('height', function(d) {
+            .attr('height', function (d) {
                 return d.h;
             })
-            .attr('class', function(d) {
+            .attr('class', function (d) {
                 return 'segment-' + d.s;
             })
-            .style('fill', function(d) {
-                return getGradient(svg, d.s);
+            .on('mouseover', function (d) {
+                onSegmentMouseOver(viz, d, gender);
             })
-            .on('mouseover', function(d) {
-                onSegmentMouseOver(viz, d);
-            })
-            .on('mousemove', function(d) {
+            .on('mousemove', function (d) {
                 onSegmentMouseMove(viz);
             })
-            .on('mouseout', function(d) {
+            .on('mouseout', function (d) {
                 informationBox.classed('hidden', true);
             });
     }
@@ -4811,6 +5206,7 @@
                         wildtypeMaleAxis, 0, 60, 'wildtype');
             }
         }
+
         if (viz.isActiveCtrl('statistics')) {
             viz.overallstat();
         }
@@ -4845,7 +5241,6 @@
             horizontalCellMiddle = width * 0.5,
             barX = dx * 0.5,
             barWidth = width - 2 * dx,
-            columnWidth = dx * 3,
             barMiddle = horizontalCellMiddle * 0.5,
             bottomPadding = 25,
             topPadding = 40,
@@ -4854,7 +5249,7 @@
         return {
             'dx': dx,
             'cm': horizontalCellMiddle,
-            'cw': columnWidth,
+            'cw': barWidth,
             'ch': columnHeight,
             'tp': topPadding,
             'bp': bottomPadding,
@@ -4869,17 +5264,19 @@
      * Plots two segmented bar charts, one for male and the other for female.
      *
      * @param {Object} viz Visualisation object.
-     * @param {Object} femalefreq Category frequency and percentages of female.
+     * @param {Object} femaleFreq Category frequency and percentages of female.
      * @param {Object} maleFreq Category frequency and percentages of male.
+     * @param {Object} intersexFreq Category frequency and percentages of intersex.
+     * @param {Object} nogenderFreq Category frequency and percentages of no gender.
      * @param {Integer} x x-coordinate of cell visualisation top-left.
      * @param {Integer} y y-coordinate of cell visualisation top-left.
      * @param {Object} spec Specification for plotting each grid cell.
      * @param {String} label Grid cell label.
      */
-    function plotFrequencyColumnCell(viz, femalefreq, maleFreq,
-        x, y, spec, label) {
-        var svg = viz.state.n.s,
-            tx = x + spec.dx, ty = y + spec.by, dx = 0.5 * spec.dx;
+    function plotFrequencyColumnCell(viz, femaleFreq, maleFreq, intersexFreq,
+        nogenderFreq, x, y, spec, label) {
+        var svg = viz.state.n.s, numColumns = 0,
+            tx = x + spec.dx, ty = y + spec.by, abbreviate = false;
 
         /* horizontal reference bar from which the segments are grown */
         line(svg, tx, ty, tx + spec.bw, ty, 'grid-bar');
@@ -4890,11 +5287,46 @@
         /* pass the grid label for segment detail */
         spec.l = label.toLowerCase();
 
-        /* plot male segmented column */
-        plotSegmentColumn(viz, true, maleFreq, tx + dx, ty, spec);
+        if (femaleFreq.t > 0) {
+            ++numColumns;
+        }
+        if (maleFreq.t > 0) {
+            ++numColumns;
+        }
+        if (intersexFreq.t > 0) {
+            ++numColumns;
+        }
+        if (nogenderFreq.t > 0) {
+            ++numColumns;
+        }
 
-        /* plot female segmented column */
-        plotSegmentColumn(viz, false, femalefreq, x + spec.cm + dx, ty, spec);
+        spec.cw = (spec.bw - (numColumns - 1) * spec.dx) / numColumns;
+        if (spec.cw < 37)
+            abbreviate = true;
+
+        if (femaleFreq.t > 0) {
+            /* plot female segmented column */
+            plotSegmentColumn(viz, abbreviate ? 'F' : 'Female',
+                femaleFreq, tx, ty, spec);
+            tx += spec.cw + spec.dx;
+        }
+        if (maleFreq.t > 0) {
+            /* plot male segmented column */
+            plotSegmentColumn(viz, abbreviate ? 'M' : 'Male',
+                maleFreq, tx, ty, spec);
+            tx += spec.cw + spec.dx;
+        }
+        if (intersexFreq.t > 0) {
+            /* plot intersex segmented column */
+            plotSegmentColumn(viz, abbreviate ? 'I' : 'Intersex',
+                intersexFreq, tx, ty, spec);
+            tx += spec.cw + spec.dx;
+        }
+        if (nogenderFreq.t > 0) {
+            /* plot no data segmented column */
+            plotSegmentColumn(viz, abbreviate ? 'N' : 'No data',
+                nogenderFreq, tx, ty, spec);
+        }
     }
 
     /**
@@ -4908,18 +5340,27 @@
      * @param {Integer} height Height of a grid cell.
      */
     function plotFrequencyColumns(viz, freqGrid, x, y, width, height) {
-        var spec = calculateColumnPlotSpecification(width, height);
+        var spec = calculateColumnPlotSpecification(width, height),
+            svg = viz.state.n.s;
 
-        /* clear out existing category usage information */
-        categoryColourIndex = availableParametersMap[viz.qeid].colourIndex;
-
-        rect(viz.state.n.s, x, y, 4 * width,
+        rect(svg, x, y, 4 * width,
             height, 'mutant-categorical-split');
+
+        /*
+         *                  Het    Hom     Hem    All
+         *        Female  (0, 0)  (0, 1)  (0,2)  (0, 3)
+         *          Male  (1, 0)  (1, 1)  (1,2)  (1, 3)
+         *      Intersex  (2, 0)  (2, 1)  (2,2)  (2, 3)
+         *       No data  (3, 0)  (3, 1)  (3,2)  (3, 3)
+         *           All  (4, 0)  (4, 1)  (4,2)  (4, 3)
+         */
 
         /* plot heterozygous */
         plotFrequencyColumnCell(viz,
             freqGrid[0][0].mutantStatistics, /* mutant heterozygous female */
             freqGrid[1][0].mutantStatistics, /* mutant heterozygous male */
+            freqGrid[2][0].mutantStatistics, /* mutant heterozygous intersex */
+            freqGrid[3][0].mutantStatistics, /* mutant heterozygous no data */
             x, y, spec, 'Het', false);
 
         /* plot homozygous */
@@ -4927,6 +5368,8 @@
         plotFrequencyColumnCell(viz,
             freqGrid[0][1].mutantStatistics, /* mutant homozygous female */
             freqGrid[1][1].mutantStatistics, /* mutant homozygous male */
+            freqGrid[2][1].mutantStatistics, /* mutant homozygous intersex */
+            freqGrid[3][1].mutantStatistics, /* mutant homozygous no data */
             x, y, spec, 'Hom', false);
 
         /* plot hemizygous */
@@ -4934,21 +5377,18 @@
         plotFrequencyColumnCell(viz,
             freqGrid[0][2].mutantStatistics, /* mutant hemizygous female */
             freqGrid[1][2].mutantStatistics, /* mutant hemizygous male */
+            freqGrid[2][2].mutantStatistics, /* mutant hemizygous intersex */
+            freqGrid[3][2].mutantStatistics, /* mutant hemizygous no data */
             x, y, spec, 'Hem', false);
-
-        /* plot both homozygous and heterozygous */
-        x += width;
-        plotFrequencyColumnCell(viz,
-            freqGrid[0][3].mutantStatistics, /* mutant female */
-            freqGrid[1][3].mutantStatistics, /* mutant male */
-            x, y, spec, 'Mutant', false);
 
         /* plot wild type */
         x += width;
         plotFrequencyColumnCell(viz,
             freqGrid[0][3].wildtypeStatistics, /* wild type female */
             freqGrid[1][3].wildtypeStatistics, /* wild type male */
-            x, y, spec, 'Wild type', true);
+            freqGrid[2][3].wildtypeStatistics, /* wild type intersex */
+            freqGrid[3][3].wildtypeStatistics, /* wild type no data */
+            x, y, spec, 'Wildtype', true);
     }
 
     /**
@@ -4981,8 +5421,8 @@
         return {
             'r': r,
             'c': c,
-            'w': width / c,
-            'h': height / r
+            'w': Math.floor(width / c),
+            'h': Math.floor(height / r)
         };
     }
 
@@ -5034,34 +5474,34 @@
         db.exit().remove();
         db.enter().append('rect')
             .attr('x',
-                function(d) {
+                function (d) {
                     return d.x;
                 })
             .attr('y',
-                function(d) {
+                function (d) {
                     return d.y;
                 })
             .attr('width',
-                function(d) {
+                function (d) {
                     return d.w;
                 })
             .attr('height',
-                function(d) {
+                function (d) {
                     return d.h;
                 })
-            .attr('mg', function(d) {
+            .attr('mg', function (d) {
                 return d.e; /* metadata group */
             })
             .attr('mid',
-                function(d) {
+                function (d) {
                     return d.m; /* measurement id */
                 })
             .attr('aid',
-                function(d) {
+                function (d) {
                     return d.a; /* animal id */
                 })
             .attr('class',
-                function(d) {
+                function (d) {
                     return 'segment-' + (d.a === highlightedSpecimen ? 0 :
                         categoryColourIndex[d.v]);
                 })
@@ -5080,16 +5520,16 @@
      * @param {Object} viz Visualisation object.
      * @param {Integer} x x-coordinate of legend top-left.
      * @param {Integer} y y-coordinate of legend top-left.
-     * @param {Integer} width Width of the legends area.
+     * @param {Array} categories List of categories to display.
      */
-    function displayCategoryLegends(viz, x, y, width) {
-        var svg = viz.state.n.s, label, i = 0, count, category,
-            legendsPerColumn = 5, ty = y, boxSize = 10, styleIndex;
-
+    function displayCategoryLegends(viz, x, y, categories) {
+        var svg = viz.state.n.s, label, count, category,
+            legendsPerColumn = 5, ty = y, boxSize = 10, i, c;
         count = legendsPerColumn;
-        for (category in categoryColourIndex) {
-            styleIndex = categoryColourIndex[category];
-            rect(svg, x, ty, boxSize, boxSize, 'segment-' + styleIndex);
+        for (i = 0, c = categories.length; i < c; ++i) {
+            category = categories[i];
+            rect(svg, x, ty, boxSize, boxSize,
+                'segment-' + categoryColourIndex[category]);
             label = category.icap();
             if (label.length > 24)
                 label = label.substr(0, 24) + '...';
@@ -5112,7 +5552,7 @@
      */
     function categoricalPlot(viz) {
         var containerDomNode = viz.state.n.v, state = viz.state,
-            freqGrid = state.mutantStatistics,
+            statistics = state.mutantStatistics,
             mutantData = state.mutantDataset,
             svg = state.n.v, vizDim = viz.chart.dim,
             padding = viz.dim.p, halfPadding = 0.5 * padding,
@@ -5126,9 +5566,11 @@
              *                  Het    Hom     Hem    All
              *        Female  (0, 0)  (0, 1)  (0,2)  (0, 3)
              *          Male  (1, 0)  (1, 1)  (1,2)  (1, 3)
-             *   Male/Female  (2, 0)  (2, 1)  (2,2)  (2, 3)
+             *      Intersex  (2, 0)  (2, 1)  (2,2)  (2, 3)
+             *       No data  (3, 0)  (3, 1)  (3,2)  (3, 3)
+             *           All  (4, 0)  (4, 1)  (4,2)  (4, 3)
              */
-            cellWidth = Math.floor(width / 6);
+            cellWidth = Math.floor(width / 5);
 
         /* used for on mouse over events for data points */
         viz.scale.x = getLinearScaler(0, vizDim.w, 0, vizDim.w);
@@ -5138,14 +5580,15 @@
         containerDomNode.selectAll('.categorical').remove();
         viz.state.n.s = svg = svg.append('g').attr('class', 'categorical');
 
-        plotFrequencyColumns(viz, freqGrid, padding * 0.25, 1.75 * padding,
-            cellWidth, height);
+        plotFrequencyColumns(viz, statistics.freqGrid,
+            padding * 0.25, 1.75 * padding, cellWidth, height);
 
         plotCategoricalDatapoints(viz, mutantData,
-            halfPadding + 5 * cellWidth, 2 * padding,
+            halfPadding + 4 * cellWidth, 2 * padding,
             cellWidth, height, getDatapointOnMouseClickHandler(viz));
 
-        displayCategoryLegends(viz, halfPadding, halfPadding, width);
+        displayCategoryLegends(viz, halfPadding, halfPadding,
+            statistics.categories);
         viz.title(); /* show title of the visualisation */
         svgMouseventHandler(viz);
     }
@@ -5184,7 +5627,7 @@
      * <li>l: chart title</li>
      * </ul>
      *
-     * <p>The recognised string codes for graph/plot types are:</p>
+     * <p>The recognised string codes for graph/plot types are:</pCo>
      *
      * <ul>
      * <li>noplot: Do not plot (unplottable data)</li>
@@ -5206,7 +5649,7 @@
                 /* don't plot: no data type available for conversion */
                 plotType.t = 'noplot';
             } else {
-                plotType.l = proceduresMap[parameter.p].n; /* procedure name */
+                plotType.l = procedureKeyToProcedureDetailsMap[parameter.p[0]].n; /* procedure name */
 
                 /* some strings values in the database are not trimmed */
                 parameter.d = parameter.d.trim(); /* data Ftype */
@@ -5225,8 +5668,7 @@
                     /* unit of measurement */
                     parameter.u = parameter.u ? parameter.u.trim() : null;
 
-                    if (parameter.d.length === 0 ||
-                        'NULL' === parameter.d) {
+                    if (parameter.d.length === 0 || 'NULL' === parameter.d) {
                         if (parameter.u === null || parameter.u.length === 0) {
                             /* don't plot: no data type or unit */
                             plotType.t = 'noplot';
@@ -5260,7 +5702,7 @@
             yt: getYValueType(parameter.d),
             yc: getDataConvertor(parameter.d),
             yl: parameter.n,
-            l: proceduresMap[parameter.p].n /* procedure name */
+            l: procedureKeyToProcedureDetailsMap[parameter.p[0]].n /* procedure name */
         };
 
         /* prepare y-axis label (append unit if present) */
@@ -5317,9 +5759,16 @@
                     plotType.xl = parameter.iu; /* prepare x-axis label */
 
                     /* convertor function for increment values */
-                    if (parameter.iu === 'Time in hours relative to lights out') {
-                        plotType.xc = getDataConvertor('float');
-                        plotType.xt = 'f';
+                    switch (parameter.iu) {
+                        case 'Time in hours relative to lights out':
+                            plotType.xc = getDataConvertor('float');
+                            plotType.xt = 'f';
+                            break;
+
+                        default:
+                            plotType.xt = 'd';
+                            plotType.xc = getDataConvertor('date/time');
+                            plotType.xl = "Experiment date";
                     }
                     break;
             }
@@ -5380,7 +5829,7 @@
         switch (datatype) {
             case 'FLOAT':
             case 'float':
-                convertor = function(d) {
+                convertor = function (d) {
                     return parseFloat(d);
                 };
                 break;
@@ -5389,39 +5838,27 @@
             case 'INT':
             case 'INTEGER':
             case 'integer':
-                convertor = function(d) {
+                convertor = function (d) {
                     return parseInt(d, 10);
                 };
                 break;
 
             case 'date/time':
             case 'DATE/TIME':
-                convertor = function(d) {
-                    /* required data format is YYYY-MM-DD HH:MM:SS */
-                    var withSecs = /\d{4}-\d{2}-\d{2}\ \d{2}:\d{2}:\d{2}/;
-
-                    /* here, we assume that the date format is correct, except
-                     * for the seconds that are missing. so, we add the seconds.
-                     * this assumption could be wrong, and this is handled
-                     * during actual date parsing */
-                    if (!d.match(withSecs))
-                        d += ':00';
-
-                    /* if the date format is incorrect, the following parse
-                     * will return null */
-                    return dcc.dateTimeFormat.parse(d);
+                convertor = function (d) {
+                    return new Date(d);
                 };
                 break;
 
             case 'TEXT':
             case 'text':
-                convertor = function(d) {
+                convertor = function (d) {
                     return d;
                 };
                 break;
 
             default:
-                convertor = function(d) {
+                convertor = function (d) {
                     return d;
                 };
         }
@@ -5476,13 +5913,13 @@
         return processed;
     }
 
-    Visualisation = function(id, container, gid, sid, cid, qeid, useSharedControl) {
+    var Visualisation = function (id, container, gid, sid, cid, qeid, useSharedControl) {
         this.id = id; /* identifies the visualisation (must be unique) */
         this.container = container;
         this.cid = cid;
         this.gid = gid;
         this.sid = sid;
-        this.geneId = prepareGeneStrainCentreId(gid, sid, cid);
+        this.geneId = dcc.prepareGeneStrainCentreId(gid, sid, cid);
         this.qeid = qeid;
 
         /* the dimensions of the visualisation, including controls */
@@ -5528,7 +5965,9 @@
 
         this.state = {
             'n': {
-                'v': container.append('svg')
+                'v': container.append('div')
+                    .attr('class', 'viz-svg-container')
+                    .append('svg')
                     .attr('id', this.id + '-svg')
                     .attr('width', this.chart.dim.w)
                     .attr('height', this.chart.dim.h),
@@ -5554,11 +5993,11 @@
          * specific to the visualisation; otherwise, use isSharedActiveCtrl().
          */
         isActiveCtrl: null,
-        isSelfActiveCtrl: function(k) {
+        isSelfActiveCtrl: function (k) {
             var me = this;
             return (me.state.o[me.type] & controlOptions[k]) > 0;
         },
-        isSharedActiveCtrl: function(k) {
+        isSharedActiveCtrl: function (k) {
             return (dcc.visualisationControl & controlOptions[k]) > 0;
         },
         /* reference to function that checks if several controls are active.
@@ -5568,24 +6007,26 @@
          * hasSharedActiveCtrl().
          */
         hasActiveCtrls: null,
-        hasSelfActiveCtrls: function(controlsBitMap) {
+        hasSelfActiveCtrls: function (controlsBitMap) {
             var me = this;
             return (me.state.o[me.type] & controlsBitMap) > 0;
         },
-        hasSharedActiveCtrls: function(controlsBitMap) {
+        hasSharedActiveCtrls: function (controlsBitMap) {
             return (dcc.visualisationControl & controlsBitMap) > 0;
         },
-        retrieve: function() {
+        retrieve: function () {
             var me = this, dataPoints = me.state.q, selected = [], i;
             for (i in dataPoints)
                 selected.push(dataPoints[i].m);
             return selected;
         },
-        refresh: function() {
+        refresh: function () {
             var me = this, state = me.state;
 
             state.n.v.selectAll('.viz-warning').remove();
-            if (me.nodata || state.mutantStatistics.genderCombined === null) {
+            if (me.nodata ||
+                state.mutantStatistics === undefined ||
+                state.mutantStatistics.genderCombined === null) {
                 var msg;
 
                 switch (zygosity) {
@@ -5602,7 +6043,10 @@
                         msg = 'all';
                 }
                 state.n.v.selectAll('g').remove();
-                me.warn('No measurements for ' + msg + ' specimens');
+                if (msg === 'all')
+                    me.warn('No measurements found');
+                else
+                    me.warn('No measurements found for ' + msg + ' specimens');
                 return;
             }
 
@@ -5618,20 +6062,33 @@
             me.highlight();
             me.metadataGroups();
         },
-        warn: function(msg) {
-            var me = this, g = me.state.n.v;
+        warn: function (msg) {
+            var me = this, g = me.state.n.v, parent = me.container.node();
+            d3.select(parent.parentNode)
+                .select('.viz-tools').style('opacity', 0);
             text(g, me.chart.dim.w * .5,
                 me.chart.dim.h * .5, msg, 'viz-warning');
         },
-        title: function() {
+        title: function () {
             var me = this, g = me.state.n.v, t;
             g.select('.viz-title').remove();
             t = text(g, me.chart.dim.w * .5,
                 me.dim.p * .35, '', 'viz-title');
-            t.append('tspan').text(me.label.t.p + ' ');
-            t.append('tspan').text(me.label.t.q);
+            t.append('tspan').attr('class', 'title-gene-symbol')
+                .text(availableGenesMap[me.geneId].geneSymbol + ' - ');
+            g = availableParametersMap[me.qeid].em;
+            if (g !== undefined && g !== 'Unrestricted')
+                t.append('tspan')
+                    .attr('class', 'embryo-stage')
+                    .text(g + ' - ');
+            if (visualisationWidth > ZOOM_SMALL)
+                t.append('tspan').attr('class', 'title-procedure')
+                    .text(me.label.t.p + ' - ');
+            t.append('tspan').attr('class', 'title-parameter')
+                .text(me.label.t.q);
+
         },
-        legends: function() {
+        legends: function () {
             var me = this, g = me.state.n.v, t, showBaselinePointLegend,
                 x = me.dim.p * 0.75, y = me.dim.p - 20;
             g.select('.viz-legends').remove();
@@ -5669,19 +6126,21 @@
                     }
                 }
 
-                if (me.type === 'series')
-                    if (me.isActiveCtrl('polyline'))
-                        x -= 5;
-                    else
-                        x -= 15;
-                circle(t, x + 15, y, 5, 'legend-highlighted');
-                if (me.type === 'series' && me.isActiveCtrl('polyline')) {
-                    line(t, x, y, x + 30, y, 'legend-highlighted');
-                    x += 35;
-                } else
-                    x += 25;
-                text(t, x, y + 5, 'Highlighted');
-                x += 75;
+                if (highlightedSpecimen !== -1) {
+                    if (me.type === 'series')
+                        if (me.isActiveCtrl('polyline'))
+                            x -= 5;
+                        else
+                            x -= 15;
+                    circle(t, x + 15, y, 5, 'legend-highlighted');
+                    if (me.type === 'series' && me.isActiveCtrl('polyline')) {
+                        line(t, x, y, x + 30, y, 'legend-highlighted');
+                        x += 35;
+                    } else
+                        x += 25;
+                    text(t, x, y + 5, 'Highlighted');
+                    x += 75;
+                }
             }
 
             if (me.gid !== 0 && me.isActiveCtrl('whisker')) {
@@ -5755,20 +6214,148 @@
                 }
             }
         },
-        xaxis: function() {
+        legendsShapes: function () {
+            var me = this, g = me.state.n.v, t, showBaselinePointLegend,
+                x = me.dim.p * 0.75, y = me.dim.p - 20;
+            g.select('.viz-legends').remove();
+
+            t = g.append('g').attr('class', 'viz-legends');
+            showBaselinePointLegend = me.isActiveCtrl('wildtype') &&
+                me.type === "point";
+
+            if (me.isActiveCtrl('point')) {
+                if (me.isActiveCtrl('female')) {
+                    text(t, x, y, me.getSymbol('mutant', 'female'), 'm-female');
+                    x += 10;
+                    text(t, x, y + 5, 'Female');
+                    x += 60;
+
+                    if (showBaselinePointLegend) {
+                        text(t, x, y, me.getSymbol('wildtype', 'female'),
+                            'wt-female');
+                        x += 10;
+                        text(t, x, y + 5, 'Female (WT)');
+                        x += 90;
+                    }
+                }
+
+                if (me.isActiveCtrl('male')) {
+                    text(t, x, y, me.getSymbol('mutant', 'male'), 'm-male');
+                    x += 10;
+                    text(t, x, y + 5, 'Male');
+                    x += 45;
+
+                    if (showBaselinePointLegend) {
+                        text(t, x, y, me.getSymbol('wildtype', 'male'),
+                            'wt-male');
+                        x += 10;
+                        text(t, x, y + 5, 'Male (WT)');
+                        x += 60;
+                    }
+                }
+
+                if (highlightedSpecimen !== -1) {
+                    if (me.type === 'series')
+                        if (me.isActiveCtrl('polyline'))
+                            x -= 5;
+                        else
+                            x -= 15;
+                    circle(t, x + 15, y, 5, 'legend-highlighted');
+                    if (me.type === 'series' && me.isActiveCtrl('polyline')) {
+                        line(t, x, y, x + 30, y, 'legend-highlighted');
+                        x += 35;
+                    } else
+                        x += 25;
+                    text(t, x, y + 5, 'Highlighted');
+                    x += 75;
+                }
+            }
+
+            if (me.gid !== 0 && me.isActiveCtrl('whisker')) {
+                rect(t, x, y - 5, 10, 10, 'whisker mutant');
+                x += 15;
+                text(t, x, y + 5, 'Mutant');
+                x += 53;
+
+                if (me.isActiveCtrl('wildtype')) {
+                    rect(t, x, y - 5, 10, 10, 'whisker wildtype');
+                    x += 15;
+                    text(t, x, y + 5, 'Wild type');
+                    x += 65;
+                }
+            }
+
+            if (me.isActiveCtrl('statistics') && me.isActiveCtrl('polyline')) {
+                /* We display a dotted wild type when any of the following
+                 * controls is active:
+                 *
+                 * mean: 0x1
+                 * median: 0x2
+                 * max: 0x4
+                 * min: 0x8
+                 * quartile: 0x10
+                 *
+                 * Or'ing them gives 31.
+                 */
+                if (me.gid !== 0 && me.hasActiveCtrls(31)) {
+                    if (me.isActiveCtrl('wildtype')) {
+                        line(t, x, y, x + 30, y, 'wildtype');
+                        x += 30;
+                        text(t, x, y + 5, 'Wild type');
+                        x += 65;
+                    }
+                }
+
+                if (me.isActiveCtrl('min')) {
+                    line(t, x, y, x + 20, y, 'min');
+                    x += 25;
+                    text(t, x, y + 5, 'Min');
+                    x += 35;
+                }
+                if (me.isActiveCtrl('max')) {
+                    line(t, x, y, x + 20, y, 'max');
+                    x += 25;
+                    text(t, x, y + 5, 'Max');
+                    x += 35;
+                }
+                if (me.isActiveCtrl('mean')) {
+                    line(t, x, y, x + 20, y, 'mean');
+                    x += 25;
+                    text(t, x, y + 5, 'Mean');
+                    x += 40;
+                }
+                if (me.isActiveCtrl('median')) {
+                    line(t, x, y, x + 20, y, 'median');
+                    x += 25;
+                    text(t, x, y + 5, 'Median');
+                    x += 50;
+                }
+                if (me.isActiveCtrl('quartile')) {
+                    line(t, x, y, x + 20, y, 'q1');
+                    x += 25;
+                    text(t, x, y + 5, 'Q1');
+                    x += 25;
+                    line(t, x, y, x + 20, y, 'q3');
+                    x += 25;
+                    text(t, x, y + 5, 'Q3');
+                    x += 25;
+                }
+            }
+        },
+        xaxis: function () {
             var me = this, g = me.state.n.v;
             plotAxis('x', me, 'bottom', me.label.x);
         },
-        yaxis: function() {
+        yaxis: function () {
             var me = this, g = me.state.n.v;
             plotAxis('y', me, 'left', me.label.y);
         },
-        errorbar: function(index) {
+        errorbar: function (index) {
             var me = this, i,
                 dataPoint, groupIdPrefix = 'group-' + index + '_',
                 container = me.state.n.s, /* contains all statistics visuals */
                 stat = getStatistics(me, true), /* get mutant statistics */
-                seriesDataPoints = statistics.r.r[index].d,
+                seriesDataPoints = stat.r.r[index].d,
                 numDataPoints = seriesDataPoints.length,
                 deviationGetter = me.isActiveCtrl('std_err') ?
                 getColumnStandardError : getColumnStandardDeviation;
@@ -5778,10 +6365,10 @@
                 dataPoint = seriesDataPoints[i];
                 plotErrorBar(groupIdPrefix + i, me,
                     dataPoint.x, dataPoint.y,
-                    deviationGetter(statistics, dataPoint.x), 10);
+                    deviationGetter(stat, dataPoint.x), 10);
             }
         },
-        whisker: function() {
+        whisker: function () {
             var me = this, i, temp,
                 container = me.state.n.s, /* contains all statistics visuals */
                 mutantStatistics = getStatistics(me, true),
@@ -5823,7 +6410,7 @@
             } else
                 container.selectAll('.whisker').remove();
         },
-        init: function() {
+        init: function () {
             var me = this, state = me.state, mutantData, wildtypeData,
                 data = measurementsSet[zygosity][me.geneId][me.qeid];
 
@@ -5869,7 +6456,7 @@
                 default:
             }
         },
-        stat: function(statisticsType) {
+        stat: function (statisticsType) {
             var me = this, container = me.state.n.s;
             if (me.isActiveCtrl(statisticsType) && me.ptype.t === 'series') {
                 var mt = getStatistics(me, true),
@@ -5877,7 +6464,7 @@
                     showDataPoints = me.isActiveCtrl('point'),
                     showPolyline = me.isActiveCtrl('polyline'),
                     /* function to retrieve unscaled data points */
-                    getData = function(d) {
+                    getData = function (d) {
                         return {
                             m: d.m,
                             a: d.a,
@@ -5917,7 +6504,7 @@
             } else
                 container.selectAll('.' + statisticsType).remove();
         },
-        bar: function(statisticsType) {
+        bar: function (statisticsType) {
             var me = this, container = me.state.n.s;
             if (me.isActiveCtrl(statisticsType)) {
                 var mt = getStatistics(me, true),
@@ -5925,7 +6512,7 @@
                     showDataPoints = me.isActiveCtrl('point'),
                     showPolyline = me.isActiveCtrl('polyline'),
                     /* function to retrieve unscaled data points */
-                    getData = function(d) {
+                    getData = function (d) {
                         return {
                             m: d.m,
                             a: d.a,
@@ -5964,7 +6551,7 @@
             } else
                 container.selectAll('.' + statisticsType).remove();
         },
-        overallstat: function() {
+        overallstat: function () {
             var me = this, mt, wt;
             if (me.type === 'point' && me.isActiveCtrl('polyline')) {
                 mt = getStatistics(me, true);
@@ -5975,7 +6562,7 @@
                     plotStatistics(me, mt.overall.y, 10, false);
             }
         },
-        quartiles: function() {
+        quartiles: function () {
             var me = this, mt = getStatistics(me, true),
                 wt = getStatistics(me, false),
                 container = me.state.n.s; /* contains all statistics visuals */
@@ -6008,19 +6595,19 @@
                 container.selectAll('.q3').remove();
             }
         },
-        showMutantDatapointSwarm: function(femaleAxis, maleAxis) {
+        showMutantDatapointSwarm: function (femaleAxis, maleAxis) {
             var me = this, statistics = getStatistics(me, true);
             showDatapointSwarm(me, statistics.r.r, 'mutant-datapoints',
                 femaleAxis, maleAxis, me.gid === 0 ?
                 wildtypeDatapointRadius : mutantDatapointRadius);
         },
-        showBaselineDatapointSwarm: function(femaleAxis, maleAxis) {
+        showBaselineDatapointSwarm: function (femaleAxis, maleAxis) {
             var me = this, statistics = getStatistics(me, false);
             if (statistics && statistics.r && statistics.r.r)
                 showDatapointSwarm(me, statistics.r.r, 'wildtype-datapoints',
                     femaleAxis, maleAxis, wildtypeDatapointRadius);
         },
-        showDataPoints: function() {
+        showDataPoints: function () {
             var me = this, statistics, i, c, data,
                 columnDataset, state, leaning = undefined;
             if (me.isActiveCtrl('point')) {
@@ -6036,78 +6623,141 @@
                         }
                 } else {
                     state = me.state;
-                    if (me.isActiveCtrl('wildtype'))
+                    if (me.gid !== 0 && me.isActiveCtrl('wildtype'))
                         me.scatter('wildtype',
                             filterByGender(state.wildtypeDataset, me),
-                            's', wildtypeDatapointRadius);
+                            me.isActiveCtrl('shapes') ? 't'
+                            : 'r', wildtypeDatapointRadius);
                     me.scatter('mutant',
                         filterByGender(state.mutantDataset, me),
-                        'c', mutantDatapointRadius);
+                        me.isActiveCtrl('shapes') ? 't'
+                        : 'c', mutantDatapointRadius);
                 }
             }
         },
-        scatter: function(id, data, type, halfSize) {
-            var me = this, state = me.state, size = 2 * halfSize,
+        getSymbol: function (type, gender) {
+            if (gender === 'male') {
+                if (type === 'wildtype') {
+                    return '★';
+                } else {
+                    return '▲';
+                }
+            } else {
+                if (type === 'wildtype') {
+                    return '+';
+                } else {
+                    return '■';
+                }
+            }
+        },
+        scatter: function (id, data, type, size) {
+            var me = this, i, t, state = me.state, halfSize = 0.5 * size,
                 xScale = me.scale.x, yScale = me.scale.y;
 
-            if (type === 'c')
-                state.n.v.append('g').attr('class', id + '-datapoints')
-                    .selectAll('circle')
-                    .data(data)
-                    .enter()
-                    .append('circle')
-                    .attr('class', function(d) {
-                        return d.s === 1 ? 'male' : 'female';
-                    })
-                    .attr('mg', function(d) {
-                        return d.e; /* metadata group */
-                    })
-                    .attr('mid', function(d) {
-                        return d.m; /* measurement id */
-                    })
-                    .attr('aid', function(d) {
-                        return d.a; /* animal id */
-                    })
-                    .attr('cx', function(d) {
-                        return xScale(d.x);
-                    })
-                    .attr('cy', function(d) {
-                        return yScale(d.y);
-                    })
-                    .attr('r', mutantDatapointRadius)
-                    .classed('highlight', function(d) {
-                        return d.a === highlightedSpecimen;
-                    })
-                    .on('click', getDatapointOnMouseClickHandler(me));
-            else
-                state.n.v.append('g').attr('class', id + '-datapoints')
-                    .selectAll('rect')
-                    .data(data)
-                    .enter()
-                    .append('rect')
-                    .attr('class', function(d) {
-                        return d.s === 1 ? 'male' : 'female';
-                    })
-                    .attr('mg', function(d) {
-                        return d.e; /* metadata group */
-                    })
-                    .attr('mid', function(d) {
-                        return d.m; /* measurement id */
-                    })
-                    .attr('aid', function(d) {
-                        return d.a; /* animal id */
-                    })
-                    .attr('x', function(d) {
-                        return xScale(d.x) - halfSize;
-                    })
-                    .attr('y', function(d) {
-                        return yScale(d.y) - halfSize;
-                    })
-                    .attr('width', size)
-                    .attr('height', size)
-                    .on('click', getDatapointOnMouseClickHandler(me));
+            for (i in data) {
+                t = data[i];
+                t.sx = xScale(t.x);
+                t.sy = yScale(t.y);
+            }
+
+            switch (type) {
+                case 't':
+                    state.n.v.append('g').attr('class', id + '-datapoints')
+                        .selectAll('text')
+                        .data(data)
+                        .enter()
+                        .append('text')
+                        .attr('class', function (d) {
+                            return d.s === 1 ? 'male' : 'female';
+                        })
+                        .attr('mg', function (d) {
+                            return d.e; /* metadata group */
+                        })
+                        .attr('mid', function (d) {
+                            return d.m; /* measurement id */
+                        })
+                        .attr('aid', function (d) {
+                            return d.a; /* animal id */
+                        })
+                        .attr('x',
+                            function (d) {
+                                return d.sx;
+                            })
+                        .attr('y',
+                            function (d) {
+                                return d.sy;
+                            })
+                        .text(function (d) {
+                            return me.getSymbol(id, d.s === 1 ? 'male'
+                                : 'female');
+                        })
+                        .classed('highlight', function (d) {
+                            return d.a === highlightedSpecimen;
+                        })
+                        .on('click', getDatapointOnMouseClickHandler(me));
+                    break;
+
+                case 'c':
+                    state.n.v.append('g').attr('class', id + '-datapoints')
+                        .selectAll('circle')
+                        .data(data)
+                        .enter()
+                        .append('circle')
+                        .attr('class', function (d) {
+                            return d.s === 1 ? 'male' : 'female';
+                        })
+                        .attr('mg', function (d) {
+                            return d.e; /* metadata group */
+                        })
+                        .attr('mid', function (d) {
+                            return d.m; /* measurement id */
+                        })
+                        .attr('aid', function (d) {
+                            return d.a; /* animal id */
+                        })
+                        .attr('cx', function (d) {
+                            return xScale(d.x);
+                        })
+                        .attr('cy', function (d) {
+                            return yScale(d.y);
+                        })
+                        .attr('r', mutantDatapointRadius)
+                        .classed('highlight', function (d) {
+                            return d.a === highlightedSpecimen;
+                        })
+                        .on('click', getDatapointOnMouseClickHandler(me));
+                    break;
+
+                case 'r':
+                    state.n.v.append('g').attr('class', id + '-datapoints')
+                        .selectAll('rect')
+                        .data(data)
+                        .enter()
+                        .append('rect')
+                        .attr('class', function (d) {
+                            return d.s === 1 ? 'male' : 'female';
+                        })
+                        .attr('mg', function (d) {
+                            return d.e; /* metadata group */
+                        })
+                        .attr('mid', function (d) {
+                            return d.m; /* measurement id */
+                        })
+                        .attr('aid', function (d) {
+                            return d.a; /* animal id */
+                        })
+                        .attr('x', function (d) {
+                            return xScale(d.x) - halfSize;
+                        })
+                        .attr('y', function (d) {
+                            return yScale(d.y) - halfSize;
+                        })
+                        .attr('width', size)
+                        .attr('height', size)
+                        .on('click', getDatapointOnMouseClickHandler(me));
+            }
         },
-        swarm: function(dataset, x, type, leaning) {
+        swarm: function (dataset, x, type, leaning) {
             var me = this, state = me.state, g, i, c,
                 radius = me.gid === 0 ?
                 wildtypeDatapointRadius : mutantDatapointRadius,
@@ -6122,7 +6772,7 @@
             plotSwarm(swarm.swarm(leaning, SWARM_BOUND), g, type,
                 radius, getDatapointOnMouseClickHandler(me));
         },
-        highlight: function() {
+        highlightSeries: function () {
             var me = this, index, seriesDataPoints,
                 containerDomNode = me.state.n.s,
                 statistics = getStatistics(me, true);
@@ -6132,11 +6782,9 @@
                 if (index !== undefined) {
                     seriesDataPoints = statistics.r.r[index];
                     if (seriesDataPoints !== undefined) {
-                        if (me.isActiveCtrl('errorbar'))
-                            me.errorbar(index);
                         plotSeries('highlighted',
                             seriesDataPoints.d,
-                            function(d) {
+                            function (d) {
                                 return {
                                     e: d.e,
                                     m: d.m,
@@ -6154,7 +6802,25 @@
                 }
             }
         },
-        crosshair: function() {
+        highlightDatapoint: function () {
+            var me = this, containerDomNode = me.state.n.s;
+            containerDomNode
+                .selectAll('.highlight')
+                .classed('highlight', false);
+            if (me.isActiveCtrl('highlight') && highlightedSpecimen !== -1) {
+                containerDomNode
+                    .selectAll('[aid="' + highlightedSpecimen + '"]')
+                    .classed('highlight', true);
+            }
+        },
+        highlight: function () {
+            var me = this;
+            if (me.type === 'series')
+                me.highlightSeries();
+            else
+                me.highlightDatapoint();
+        },
+        crosshair: function () {
             var me = this, containerDomNode;
             if (me.isActiveCtrl('crosshair'))
                 renderCrosshair(me);
@@ -6164,7 +6830,7 @@
                 containerDomNode.on('mousemove', null);
             }
         },
-        metadataGroups: function() {
+        metadataGroups: function () {
             var me = this, containerDomNode = me.state.n.v,
                 mg = metadataGroups[me.geneId][me.qeid], x = 1.5 * me.dim.p, d,
                 radius = 12, distanceFromBottom = me.dim.h - .30 * me.dim.p,
@@ -6178,11 +6844,12 @@
                         .data(mg.groups);
                     g = d.enter().append('g')
                         .attr('class', 'metadata-group')
-                        .on('mouseenter', getMetadataGroupMouseOverHandler(me, mg.diffSet))
+                        .on('mouseenter', getMetadataGroupMouseOverHandler(me,
+                            mg.diffSet))
                         .on('mouseleave', getMetadataGroupMouseOutHandler(me));
 
                     g.append('circle')
-                        .attr('cx', function(d) {
+                        .attr('cx', function (d) {
                             var cx = x;
                             x += 2.75 * radius;
                             return cx;
@@ -6193,13 +6860,13 @@
                     i = 0;
                     x = 1.5 * me.dim.p;
                     g.append('text')
-                        .attr('x', function(d) {
+                        .attr('x', function (d) {
                             var cx = x;
                             x += 2.75 * radius;
                             return cx;
                         })
                         .attr('y', textY)
-                        .text(function(d) {
+                        .text(function (d) {
                             return ++i;
                         });
 
@@ -6209,30 +6876,43 @@
         }
     };
 
+    function addInfobarEntry(tr, datum) {
+        var centre = centresMap[datum.cid],
+            cell = tr.append('td').append('div')
+            .style("width", visualisationWidth + "px");
+
+        cell.append('img').attr('class', 'tiny-logo')
+            .attr('src', 'images/logo_' +
+                centre.s + '.png');
+        cell.append('div').attr('class', 'infobar-centre')
+            .text(centre.s);
+        cell.append('div').attr('class', 'infobar-strain')
+            .text(datum.strain);
+        cell.append('div').attr('class', 'infobar-allele')
+            .node().innerHTML = datum.alleleName ?
+            datum.alleleName : datum.geneSymbol;
+        cell.append('a').attr('class', 'infobar-mgi')
+            .attr('href', '../data/genes/' + datum.geneId)
+            .attr('target', '_blank')
+            .text(datum.geneId);
+    }
+
+    function showSingleGeneInfobar(parent) {
+        var infobar, tr, temp = dcc.transientGeneParameter,
+            datum = availableGenesMap[dcc.getGeneStrainCentreId(temp.gene)];
+        infobar = addDiv(parent, 'infobar');
+        tr = infobar.append('table').append('tr');
+        addInfobarEntry(tr, datum);
+        tr.append('td');
+    }
+
     function showInfobar(parent) {
         var infobar, tr;
         if (geneList.count() > 0) {
             infobar = addDiv(parent, 'infobar');
             tr = infobar.append('table').append('tr');
-            geneList.traverse(function(datum) {
-                var centre = centresMap[datum.cid],
-                    cell = tr.append('td').append('div')
-                    .style("width", visualisationWidth + "px");
-
-                cell.append('img').attr('class', 'tiny-logo')
-                    .attr('src', 'images/logo_' +
-                        centre.s + '.png');
-                cell.append('div').attr('class', 'infobar-centre')
-                    .text(centre.s);
-                cell.append('a').attr('class', 'infobar-mgi')
-                    .attr('href', '../data/genes/' + datum.geneId)
-                    .attr('target', '_blank')
-                    .text(datum.geneId);
-                cell.append('div').attr('class', 'infobar-strain')
-                    .text(datum.strain);
-                cell.append('div').attr('class', 'infobar-allele')
-                    .node().innerHTML = datum.alleleName ?
-                    datum.alleleName : datum.geneSymbol;
+            geneList.traverse(function (datum) {
+                addInfobarEntry(tr, datum);
             });
             tr.append('td');
         } else
@@ -6240,7 +6920,7 @@
     }
 
     function getSharedControlOnClickHandler(control, handler) {
-        return function() {
+        return function () {
             preventEventBubbling();
             var isOn, cls = control + '-', node = d3.select(this);
             dcc.visualisationControl ^= controlOptions[control];
@@ -6254,7 +6934,7 @@
                 isOn = true;
             }
             if (handler === undefined)
-                refreshVisibleVisualisations();
+                refreshVisualisationCluster(true);
             else
                 handler(isOn);
         };
@@ -6278,7 +6958,7 @@
     }
 
     function getAnimatedWidthChanger(node, width) {
-        return function() {
+        return function () {
             preventEventBubbling();
             node.transition().duration(ANIMATION_DURATION)
                 .style('width', width + 'px');
@@ -6286,7 +6966,7 @@
     }
 
     function getAnimatedWidthToggler(node, offWidth, onWidth) {
-        return function() {
+        return function () {
             preventEventBubbling();
             var currentWidth = width(node), isOn = currentWidth === onWidth;
             currentWidth = isOn ? offWidth : onWidth;
@@ -6323,7 +7003,7 @@
         } else {
             toggler = getAnimatedWidthToggler(group, toolbarWidth,
                 expandedWidth + toolbarWidth);
-            group.on(TOUCH_START, function() {
+            group.on(TOUCH_START, function () {
                 if (toggler()) {
                     button.attr('class', 'control contract-button');
                 } else {
@@ -6337,16 +7017,22 @@
 
     function resizeVisualisations(dontRefresh) {
         var i, c, visualisation,
-            height = getAspectHeight(visualisationWidth) + heightExtension;
+            visualisatinoHeight = getAspectHeight(visualisationWidth)
+            + heightExtension;
         d3.selectAll('#infobar td > div')
             .style("width", visualisationWidth + "px");
         for (i = 0, c = visualisationCluster.length; i < c; ++i) {
             visualisation = visualisationCluster[i];
-            visualisation
-                .style("width", visualisationWidth + "px")
-                .style("height", height + "px");
+            height(visualisation, visualisatinoHeight);
+            width(visualisation, visualisationWidth);
+            if (visualisation.content)
+                height(visualisation.content, height(visualisation)
+                    - height(visualisation.title)
+                    - height(visualisation.legend));
             if (!dontRefresh)
                 visualisation.isRendered = false;
+            if (visualisation.refit)
+                visualisation.refit();
         }
         if (!dontRefresh)
             refreshVisualisationCluster(true);
@@ -6360,14 +7046,14 @@
     }
 
     function getZoomOnClickHandler(value) {
-        return function() {
+        return function () {
             preventEventBubbling();
             if (visualisationWidth !== value) {
                 var cls, node = d3.select(this),
                     parent = d3.select(this.parentNode);
                 visualisationWidth = value;
                 parent.selectAll('.control')
-                    .attr('class', function() {
+                    .attr('class', function () {
                         return d3.select(this).attr('type') + '-off control';
                     });
                 cls = node.attr('type') + '-on control';
@@ -6397,15 +7083,12 @@
         var i, c = options.length, label, control, toolbarWidth = 66,
             expandedWidth = (c + 1) * toolbarWidth,
             group = addDiv(toolbar, null, 'control-group');
-
         label = addDiv(group, 'zoom-label', 'control');
-        control = options[0];
-        visualisationWidth = control.v;
-        addZoomOption(group, control.t, control.l, control.v);
-        label.classed(control.t + '-on', true);
-        for (i = 1; i < c; ++i) {
+        for (i = 0; i < c; ++i) {
             control = options[i];
             addZoomOption(group, control.t, control.l, control.v);
+            if (visualisationWidth === control.v)
+                label.classed(control.t + '-on', true);
         }
         if (isSupportedTouchDevice === null) {
             group.on('mouseenter',
@@ -6419,13 +7102,13 @@
     }
 
     function getGenderOnClickHandler(type) {
-        return function() {
+        return function () {
             preventEventBubbling();
             var cls, node = d3.select(this), oldControl,
                 combined = controlOptions.male | controlOptions.female,
                 parent = d3.select(this.parentNode);
             parent.selectAll('.control')
-                .attr('class', function() {
+                .attr('class', function () {
                     return d3.select(this).attr('type') + '-off control';
                 });
             cls = node.attr('type') + '-on control';
@@ -6442,7 +7125,7 @@
                 case 'male_female':
                     dcc.visualisationControl |= combined;
             }
-            refreshVisibleVisualisations();
+            refreshVisualisationCluster(true);
         };
     }
 
@@ -6475,7 +7158,6 @@
 
         label = addDiv(group, 'gender-label', 'control');
         control = options[0];
-        visualisationWidth = control.v;
         addGenderOption(group, control.t, control.l);
         label.classed(control.t + '-on', true);
         for (i = 1; i < c; ++i) {
@@ -6494,14 +7176,14 @@
     }
 
     function getZygosityOnClickHandler(type) {
-        return function() {
+        return function () {
             preventEventBubbling();
             var cls, node = d3.select(this), oldZygosity = zygosity,
                 combined = controlOptions.hom |
                 controlOptions.het | controlOptions.hem,
                 parent = d3.select(this.parentNode);
             parent.selectAll('.control')
-                .attr('class', function() {
+                .attr('class', function () {
                     return d3.select(this).attr('type') + '-off control';
                 });
             cls = node.attr('type') + '-on control';
@@ -6539,7 +7221,8 @@
     function addZygosityOption(toolbar, type, tip) {
         var control = addDiv(toolbar, null, 'control'),
             suffix = '-off', config = dcc.visualisationControl,
-            showAll = (config & ALL_ZYGOSITY_SELECTED) === ALL_ZYGOSITY_SELECTED;
+            showAll = (config & ALL_ZYGOSITY_SELECTED)
+            === ALL_ZYGOSITY_SELECTED;
         if ((type === 'zygosity_all' && showAll) ||
             (!showAll && (config & controlOptions[type]))) {
             suffix = '-on';
@@ -6570,7 +7253,6 @@
 
         label = addDiv(group, 'zygosity-label', 'control');
         control = options[0];
-        visualisationWidth = control.v;
         addZygosityOption(group, control.t, control.l);
         label.classed(control.t + '-on', true);
         for (i = 1; i < c; ++i) {
@@ -6589,18 +7271,23 @@
     }
 
     function showVisualisationControls() {
-        var parent = d3.select('#sidebar'), toolbar;
+        var parent = d3.select('#sidebar'), toolbar,
+            isPreview = dcc.transientGeneParameter !== undefined;
         clear(parent);
-        addDiv(parent, 'configure-button')
-            .attr('title', 'Select genes and parameters')
-            .on('click', function() {
+        addDiv(parent, (isPreview ? 'back-button' : 'configure-button'))
+            .attr('title', (isPreview ? 'Return to phenotype heatmap,\ngene and parameter selector'
+                : 'Select genes and parameters'))
+            .on('click', function () {
                 preventEventBubbling();
                 mode = CONFIGURE;
                 showMode();
             });
 
         toolbar = addDiv(parent, 'controls');
-        addControl(toolbar, 'infobar', 'Show information', function(isOn) {
+
+        addControl(toolbar, 'overview', 'Show procedure level overviews');
+
+        addControl(toolbar, 'infobar', 'Show statistical annotations\n and metadata details', function (isOn) {
             heightExtension = isOn ? HEIGHT_EXTENSION_VALUE : 0;
             resizeVisualisations(true);
         });
@@ -6681,6 +7368,7 @@
                 'l': 'Show arithmetic mean'
             }]);
         addControl(toolbar, 'crosshair', 'Show crosshair');
+        addControl(toolbar, 'shapes', 'Use shapes to display datapoints\nexcept when using Beeswarm plots');
         addZoomOptions(toolbar, [
             {
                 't': 'zoom_small',
@@ -6730,26 +7418,26 @@
     function loadConfigData(parent, handler, genes, params) {
         loadingApp(parent);
         progress(10, 'Loading centres...');
-        d3.json("rest/centres", function(data) {
+        d3.json("rest/centres", function (data) {
             progress(20, 'Processing centres...');
             processCentres(data);
             progress(30, 'Loading centre activity...');
-            d3.json("rest/centres/activity", function(data) {
+            d3.json("rest/centres/activity", function (data) {
                 processCentreActivity(data);
                 progress(40, 'Loading genes and strains...');
                 d3.json("rest/genestrains" +
                     (genes ? '?g=' + genes : ''),
-                    function(data) {
+                    function (data) {
                         progress(50, 'Processing genes and strains...');
                         processGenes(data);
                         progress(60, 'Loading procedures...');
-                        d3.json("rest/procedure", function(data) {
+                        d3.json("rest/procedure", function (data) {
                             progress(70, 'Processing procedures...');
                             processProcedures(data);
                             progress(80, 'Loading parameters...');
                             d3.json("rest/parameter" +
                                 (params ? '?q=' + params : ''),
-                                function(data) {
+                                function (data) {
                                     progress(90, 'Processing parameters...');
                                     processParameters(data);
                                     progress(100, 'All done...');
@@ -6778,13 +7466,26 @@
             informationBox.classed('hidden', true);
         var content = d3.select('#content'),
             navigator = addDiv(content, 'navigator'),
-            list = addDiv(content, 'list');
-
-        /* Only show details panel if there is enough screen resolution */
-        if (width('body') >= 1440)
-            detailsPanel = new DetailsPanel(content);
-        showNavigationBar(navigator, list);
-        showCentres(list);
+            mainContent = addDiv(content, 'main-content');
+        detailsPanel = new DetailsPanel(content);
+        showNavigationBar(navigator, mainContent);
+        switch (stateToReturnTo) {
+            case 'centre':
+                showCentres(mainContent);
+                break;
+            case 'gene':
+                showGenes(mainContent);
+                break;
+            case 'procedure':
+                showProcedures(mainContent);
+                break;
+            case 'parameter':
+                showParameters(mainContent);
+                break;
+            case 'heatmap':
+            default:
+                showHeatmap(mainContent);
+        }
         resize();
     }
 
@@ -6805,14 +7506,14 @@
             showConfigurationInterface();
     }
 
-    function showNavigationBar(parent, list) {
+    function showNavigationBar(parent, configContent) {
         var i, j, c, d, datum, section, node, ul,
-            getClickHandler = function(fn, list) {
-                return function() {
+            getClickHandler = function (fn) {
+                return function () {
                     preventEventBubbling();
                     clear(d3.select('#details-panel'));
-                    filter.text = null;
-                    fn(list);
+                    filterBy.text = null;
+                    fn(configContent);
                 };
             };
         for (i = 0, c = navigatorItems.length; i < c; ++i) {
@@ -6826,7 +7527,7 @@
                 ul.append('li').attr('id', node.id + '-browse')
                     .text(node.label)
                     .attr('title', node.hint)
-                    .on('click', getClickHandler(node.fn, list));
+                    .on('click', getClickHandler(node.fn, configContent));
             }
         }
         d3.select('#genes-basket-browse')
@@ -6840,72 +7541,128 @@
 
         addDiv(parent, 'visualise-button', null, 'Visualise')
             .attr('title', 'Comparatively visualise the current\nselection of genes and parameters')
-            .on('click', function() {
+            .on('click', function () {
                 preventEventBubbling();
+                /* enter mode that uses gene/parameter selection. */
+                dcc.transientGeneParameter = undefined;
+
                 if (geneList.count() === 0) {
                     alert('The gene list is empty. Please select at least one gene.');
                 } else if (parameterList.count() === 0) {
                     alert('The parameter list is empty. Please select at least one parameter.');
                 } else {
-                    var sidebar = d3.select('#sidebar');
-                    mode = VISUALISE;
-                    sidebar.style('display', 'block')
-                        .style('width', sidebar.savedWidth);
-                    showMode();
+                    dcc.visualiseSelection();
                 }
+            });
+
+        addDiv(parent, 'clear-cookies', null, 'Clean restart')
+            .attr('title', 'Clean restart Phenoview by clearing\ncurrent selections and browser cookies')
+            .on('click', function () {
+                preventEventBubbling();
+                emptyGeneSelection();
+                emptyParameterSelection();
+                resetState();
+                mode = CONFIGURE;
+                showMode();
             });
     }
 
     function getCentreMouseEnterHandler(cid) {
-        return function() {
-            if (detailsPanel)
-                detailsPanel.update(cid);
+        return function () {
+            detailsPanel.update(cid);
         };
     }
 
-    function showCentres(parent) {
-        var centre, i, c, node, controls = d3.select('#controls');
-        if (detailsPanel)
-            detailsPanel.changeMode(CENTRE_DETAILS);
-        clear(controls);
+    function setReturnState(state) {
+        d3.select('#' + state + '-browse').classed('navigator-selected', true);
+        stateToReturnTo = state;
+        setCookie('state', stateToReturnTo);
+    }
+
+    function showHeatmap(parent) {
+        /* use by Phenoview heatmap for doing centre filtering */
+        dcc.centresMap = centresMap;
+
+        setReturnState('heatmap');
+        detailsPanel.hide();
         clear(parent);
-        parent = addDiv(parent, 'centres');
-        for (i = 0, c = centres.length; i < c; ++i) {
-            centre = centres[i];
-            node = addDiv(parent, null, 'centre-' + centre.s);
-            addDiv(node);
-            addDiv(node, null, null, centre.f);
-            node.on('click', getCentreClickHandler(centre))
-                .on('mouseenter', getCentreMouseEnterHandler(centre.i));
+        parent = addDiv(parent, 'heatmap');
+        heatmap = new dcc.PhenoHeatMap({
+            /* identifier of <div> node that will host the heatmap */
+            'container': 'heatmap',
+            /* default usage mode: ontological or procedural */
+            'mode': 'procedural',
+            'url': {
+                /* the base URL of the heatmap javascript source */
+                'jssrc': '/heatmap/js/',
+                /* the base URL of the heatmap data source */
+                'json': '/heatmap/rest/'
+            }
+        });
+        refitConfigure();
+    }
+
+    function switchConfigurationMode(parent, mode) {
+        clear(parent);
+        parent = addDiv(parent, 'list-container');
+        detailsPanel.changeMode(mode);
+        return parent;
+    }
+
+    function showCentres(parent) {
+        var centre, i, c, node;
+        setReturnState('centre');
+        heatmap = null;
+
+        /* if we returned from a preview, return to the centre gene list */
+        if (centreShowingDetails === null
+            || centresMap[centreShowingDetails] === undefined) {
+            parent = switchConfigurationMode(parent, CENTRE_DETAILS);
+            for (i = 0, c = centres.length; i < c; ++i) {
+                centre = centres[i];
+                node = addDiv(parent, null, 'centre-' + centre.s);
+                addDiv(node);
+                addDiv(node, null, null, centre.f);
+                node.on('click', getCentreClickHandler(centre))
+                    .on('mouseenter', getCentreMouseEnterHandler(centre.i));
+            }
+        } else {
+            parent = switchConfigurationMode(parent,
+                PROCEDURES_AND_PARAMS_WITH_DATA);
+            getCentreSelectHandler(centresMap[centreShowingDetails])();
         }
+        refitConfigure();
     }
 
     function showListUIFrameWork(parent) {
         clear(parent);
         var header = addDiv(parent, 'list-header'),
-            content = addDiv(parent, 'list-content');
-        height(content, height(parent) - height(header) - 1);
+            footer = addDiv(parent, 'list-footer', 'unselectable'),
+            content = addDiv(parent, 'list-content')
+            ;
+        height(content, height(parent) - height(header) - height(footer) - 1);
         return {
             'header': header,
-            'content': content
+            'content': content,
+            'footer': footer
         };
     }
 
     function getCentreClickHandler(centre) {
-        return function() {
+        return function () {
             preventEventBubbling();
-            var parent = d3.select(this.parentNode.parentNode);
+            centreShowingDetails = centre.i;
+            setCookie('centre', centreShowingDetails);
+            var parent = d3.select('#list-container');
             hideAndRemoveNodes(parent, getCentreSelectHandler(centre));
         };
     }
 
     function getCentreSelectHandler(centre) {
-        return function() {
-            preventEventBubbling();
-            if (detailsPanel)
-                detailsPanel.changeMode(PROCEDURES_AND_PARAMS_WITH_DATA);
-            filter.centre = centre.i;
-            sorter.genes = SORT_BY_GENE_ALLELE;
+        return function () {
+            detailsPanel.changeMode(PROCEDURES_AND_PARAMS_WITH_DATA);
+            filterBy.centre = centre.i;
+            sortedBy.genes = SORT_BY_GENE_ALLELE;
             sortGenes();
             showCentreGenes(centre);
         };
@@ -6913,11 +7670,13 @@
 
     function showCentreGenes(centre) {
         isSimpleList = true;
-        var parent = d3.select('#list'), list = showListUIFrameWork(parent),
-            header = list.header, content = list.content,
-            count = showGeneList(content);
+        var list = showListUIFrameWork(d3.select('#list-container')),
+            count, header = list.header;
+        count = showListPager(list.footer, genes, getGeneListFilter(),
+            showGeneList);
         showCentreGeneHeader(header, centre, count);
         showGeneListControls(header);
+        showGeneList(list.content);
     }
 
     function showCentreGeneHeader(parent, centre, count) {
@@ -6934,25 +7693,40 @@
     }
 
     function showGenes(parent) {
-        isSimpleList = false;
-        filter.centre = null;
-        if (detailsPanel)
-            detailsPanel.changeMode(PROCEDURES_AND_PARAMS_WITH_DATA);
+        setReturnState('gene');
+        heatmap = null;
 
-        var list = showListUIFrameWork(parent),
-            header = list.header, content = list.content;
-        showGeneList(content);
+        parent = switchConfigurationMode(parent, PROCEDURES_AND_PARAMS_WITH_DATA);
+
+        isSimpleList = false;
+        filterBy.centre = null;
+        var list = showListUIFrameWork(parent), header = list.header;
+        showListPager(list.footer, genes, getGeneListFilter(), showGeneList);
         showGeneListHeader(header);
         showGeneListControls(header);
+        showGeneList(list.content);
+        refitConfigure();
     }
 
     function showGeneListHeader(parent) {
-        new SearchBox(parent, 'gene', function(value) {
+        var s, sb = new SearchBox(parent, 'gene', function (value) {
             if (value !== undefined) {
-                filter.text = value.toLowerCase();
+                if (value === '') {
+                    /* we want to select the first row since we cleared the search box */
+                    geneShowingDetails = null;
+                    procedureShowingDetails = null;
+                }
+                setCookie('gene_searched', value),
+                    filterBy.text = value.toLowerCase();
+                listCurrentPage = 0;
+                showListPager(d3.select('#list-footer'), genes,
+                    getGeneListFilter(), showGeneList);
                 showGeneList(d3.select('#list-content'));
             }
-        }, 'search for genes by allele, strain or genotype');
+        }, 'search for available genes by allele, strain or genotype');
+        s = getCookie('gene_searched');
+        if (s !== undefined)
+            sb.set(s);
     }
 
     function addMgiIdColumn(tr, datum) {
@@ -6963,24 +7737,63 @@
             .text(datum.geneId);
     }
 
+    function addFieldFragment(parent, cls) {
+        var f = document.createElement('div');
+        f.className = cls;
+        parent.appendChild(f);
+        return f;
+    }
+
+    function addFieldFragmentContent(parent, cls, value) {
+        var f = document.createElement('div');
+        f.className = cls;
+        f.innerHTML = value;
+        parent.appendChild(f);
+        return f;
+    }
+
+    function addMgiIdFragment(parent, geneId) {
+        var f = document.createElement('td'), n;
+        f.className = 'mgiid-col';
+        parent.appendChild(f);
+        n = document.createElement('a');
+        n.className = 'mgiid';
+        n.target = '_blank';
+        n.href = '../data/genes/' + geneId;
+        n.innerHTML = geneId;
+        f.appendChild(n);
+        return n;
+    }
+
     function addDetailedGeneFields(tr, datum) {
-        var values = tr.append('td'), temp;
-        values.append('img').attr('class', 'small-logo')
-            .attr('src', 'images/logo_' + centresMap[datum.cid].s + '.png');
-        temp = addDiv(values, null, 'left-field');
-        addField(temp, datum.alleleName ? datum.alleleName
-            : datum.geneSymbol, 'allele');
-        addField(temp, datum.strain, 'strain');
+        var fragment = document.createDocumentFragment(), values, temp;
 
-        temp = addDiv(values, null, 'right-field');
-        addField(temp, centresMap[datum.cid].f, 'ilar');
-        addField(temp, datum.genotype, 'genotype');
+        values = document.createElement('td');
+        fragment.appendChild(values);
 
-        addMgiIdColumn(tr, datum);
-        tr.on('click', function() {
-            if (detailsPanel)
-                detailsPanel.update(datum);
+        temp = document.createElement('img');
+        temp.className = 'small-logo';
+        temp.src = 'images/logo_' + centresMap[datum.cid].s + '.png';
+        values.appendChild(temp);
+
+        temp = addFieldFragment(values, 'left-field');
+        addFieldFragmentContent(temp, 'allele',
+            datum.alleleName ? datum.alleleName : datum.geneSymbol);
+        addFieldFragmentContent(temp, 'strain', datum.strain);
+
+        temp = addFieldFragment(values, 'right-field');
+        addFieldFragmentContent(temp, 'ilar', centresMap[datum.cid].f);
+        addFieldFragmentContent(temp, 'genotype', datum.genotype);
+        addMgiIdFragment(fragment, datum.geneId);
+
+        tr.on('click', function () {
+            d3.selectAll('.selected-row').classed('selected-row', false);
+            tr.classed('selected-row', true);
+            geneShowingDetails = dcc.getGeneStrainCentreId(datum);
+            setCookie('gene', geneShowingDetails);
+            detailsPanel.update(datum);
         });
+        tr.node().appendChild(fragment);
     }
 
     function addSimpleGeneFields(tr, datum) {
@@ -6994,23 +7807,26 @@
         addField(temp, datum.genotype, 'genotype');
 
         addMgiIdColumn(tr, datum);
-        tr.on('click', function() {
-            if (detailsPanel)
-                detailsPanel.update(datum);
+        tr.on('click', function () {
+            d3.selectAll('.selected-row').classed('selected-row', false);
+            tr.classed('selected-row', true);
+            geneShowingDetails = dcc.getGeneStrainCentreId(datum);
+            setCookie('gene', geneShowingDetails);
+            detailsPanel.update(datum);
         });
     }
 
     function getGeneListFilter() {
-        var geneFilter = null, filterField = filter.centre;
-        if (filter.centre) {
-            geneFilter = function(datum) {
+        var geneFilter = null, filterField = filterBy.centre;
+        if (filterBy.centre) {
+            geneFilter = function (datum) {
                 return filterField !== datum.cid;
             };
         } else {
-            geneFilter = function(datum) {
+            geneFilter = function (datum) {
                 var matches = true;
-                if (datum && filter.text)
-                    matches = datum.filter.indexOf(filter.text) !== -1;
+                if (datum && filterBy.text)
+                    matches = datum.filter.indexOf(filterBy.text) !== -1;
                 return !matches;
             };
         }
@@ -7019,166 +7835,216 @@
 
     function showGeneList(parent) {
         clear(parent);
+        d3.selectAll('.list-goto-page').classed('list-current-page', false);
+        d3.select('#list-goto-page-' + listCurrentPage)
+            .classed('list-current-page', true);
         return showList(parent, genes, 'gene', getGeneListFilter(),
             isSimpleList ? addSimpleGeneFields : addDetailedGeneFields);
     }
 
     function emptyGeneSelection() {
-        genesMap = {};
+        selectedGenesMap = {};
         geneList.empty();
-        genesCount = 0;
-        d3.select('#genes-count').text(genesCount);
+        selectedGenesCount = 0;
+        d3.select('#genes-count').text(selectedGenesCount);
+        saveSelectionAsCookies();
     }
 
     function emptyParameterSelection() {
-        parametersMap = {};
+        selectedParametersMap = {};
         parameterList.empty();
-        parametersCount = 0;
-        d3.select('#parameters-count').text(parametersCount);
+        selectedParametersCount = 0;
+        d3.select('#parameters-count').text(selectedParametersCount);
+        saveSelectionAsCookies();
     }
 
-    function addGeneToSelection(geneId, datum) {
-        genesMap[geneId] = geneId;
-        datum[GENE_KEY] = geneId;
-        geneList.append(datum);
-        d3.select('#genes-count').text(++genesCount);
+    function addGeneToSelection(geneId) {
+        selectedGenesMap[geneId] = geneId;
+        geneList.append(availableGenesMap[geneId]);
+        d3.select('#genes-count').text(++selectedGenesCount);
+        saveSelectionAsCookies();
     }
 
-    function addParameterToSelection(qeid, datum) {
-        parametersMap[qeid] = qeid;
-        parameterList.append(datum);
-        d3.select('#parameters-count').text(++parametersCount);
+    function addParameterToSelection(qeid) {
+        selectedParametersMap[qeid] = qeid;
+        parameterList.append(availableParametersMap[qeid]);
+        d3.select('#parameters-count').text(++selectedParametersCount);
+        saveSelectionAsCookies();
     }
 
     function removeGeneFromSelection(geneId) {
-        delete genesMap[geneId];
+        delete selectedGenesMap[geneId];
         geneList.remove(geneId);
-        d3.select('#genes-count').text(--genesCount);
+        d3.select('#genes-count').text(--selectedGenesCount);
+        saveSelectionAsCookies();
         return geneList.count();
+
     }
 
     function removeParameterFromSelection(qeid) {
-        delete parametersMap[qeid];
+        delete selectedParametersMap[qeid];
         parameterList.remove(qeid);
-        d3.select('#parameters-count').text(--parametersCount);
+        d3.select('#parameters-count').text(--selectedParametersCount);
+        saveSelectionAsCookies();
         return parameterList.count();
     }
 
-    function addGeneToBasket(node, geneId, datum) {
+    function addGeneToBasket(node, geneId) {
         node.attr('class', 'basket-on');
-        addGeneToSelection(geneId, datum);
-        node.on('click', function() {
+        addGeneToSelection(geneId);
+        node.on('click', function () {
             preventEventBubbling();
-            removeGeneFromBasket(node, geneId, datum);
+            removeGeneFromBasket(node, geneId);
         });
     }
 
-    function addParameterToBasket(node, qeid, datum) {
+    function addParameterToBasket(node, qeid) {
         node.attr('class', 'basket-on');
-        addParameterToSelection(qeid, datum);
-        node.on('click', function() {
+        addParameterToSelection(qeid);
+        node.on('click', function () {
             preventEventBubbling();
-            removeParameterFromBasket(node, qeid, datum);
+            removeParameterFromBasket(node, qeid);
         });
     }
 
-    function removeGeneFromBasket(node, geneId, datum) {
+    function removeGeneFromBasket(node, geneId) {
         node.attr('class', 'basket-off');
         removeGeneFromSelection(geneId);
-        node.on('click', function() {
+        node.on('click', function () {
             preventEventBubbling();
-            addGeneToBasket(node, geneId, datum);
+            addGeneToBasket(node, geneId);
         });
     }
 
-    function removeParameterFromBasket(node, qeid, datum) {
+    function removeParameterFromBasket(node, qeid) {
         node.attr('class', 'basket-off');
         removeParameterFromSelection(qeid);
-        node.on('click', function() {
+        node.on('click', function () {
             preventEventBubbling();
-            addParameterToBasket(node, qeid, datum);
+            addParameterToBasket(node, qeid);
         });
     }
 
-    function getGeneBasket(datum) {
-        var geneId = getGeneStrainCentreId(datum);
-        return genesMap[geneId] === undefined ?
+    dcc.getGeneBasket = function (datum) {
+        var geneId = dcc.getGeneStrainCentreId(datum);
+        return selectedGenesMap[geneId] === undefined ?
             {
                 'cls': 'basket-off',
-                'onclick': function() {
-                    addGeneToBasket(d3.select(this), geneId, datum);
+                'onclick': function () {
+                    addGeneToBasket(d3.select(this), geneId);
                 }
             } :
             {
                 'cls': 'basket-on',
-                'onclick': function() {
-                    removeGeneFromBasket(d3.select(this), geneId, datum);
+                'onclick': function () {
+                    removeGeneFromBasket(d3.select(this), geneId);
                 }
             };
-    }
+    };
 
-    function getParameterBasket(datum) {
+    dcc.getParameterBasket = function (datum) {
         var qeid = datum.e;
-        return parametersMap[qeid] === undefined ?
+        return selectedParametersMap[qeid] === undefined ?
             {
                 'cls': 'basket-off',
-                'onclick': function() {
-                    addParameterToBasket(d3.select(this), qeid, datum);
+                'onclick': function () {
+                    addParameterToBasket(d3.select(this), qeid);
                 }
             } :
             {
                 'cls': 'basket-on',
-                'onclick': function() {
-                    removeParameterFromBasket(d3.select(this), qeid, datum);
+                'onclick': function () {
+                    removeParameterFromBasket(d3.select(this), qeid);
                 }
             };
-    }
+    };
+
+    dcc.getVisualisationBasket = function (geneId, qeid) {
+        if (selectedGenesMap[geneId] === undefined
+            || selectedParametersMap[qeid] === undefined) {
+            return {
+                'cls': 'basket-off',
+                'title': 'Click to add gene and parameter\ncombination to comparative visualisation',
+                'onclick': function () {
+                    if (selectedGenesMap[geneId] === undefined)
+                        addGeneToBasket(d3.select(this), geneId);
+                    if (selectedParametersMap[qeid] === undefined)
+                        addParameterToBasket(d3.select(this), qeid);
+                }
+            };
+        } else {
+            return {
+                'cls': 'basket-on',
+                'title': 'Click to remove gene from comparative visualisation',
+                'onclick': function () {
+                    if (selectedGenesMap[geneId] !== undefined)
+                        removeGeneFromBasket(d3.select(this), geneId);
+                }
+            };
+        }
+    };
 
     function showParameters(parent) {
-        isSimpleList = false;
-        filter.procedure = null;
-        if (detailsPanel)
-            detailsPanel.changeMode(PROCEDURE_DETAILS);
+        setReturnState('parameter');
+        heatmap = null;
 
-        var list = showListUIFrameWork(parent),
-            header = list.header, content = list.content;
-        showParameterList(content);
+        parent = switchConfigurationMode(parent, PROCEDURE_DETAILS);
+
+        isSimpleList = false;
+        filterBy.procedure = null;
+        var list = showListUIFrameWork(parent), header = list.header;
+        showListPager(list.footer, parameters, getParameterListFilter(), showParameterList);
         showParameterListHeader(header);
         showParameterListControls(header);
+        showParameterList(list.content);
+        refitConfigure();
     }
 
     function showParameterListHeader(parent) {
-        new SearchBox(parent, 'parameter', function(value) {
+        var s, sb = new SearchBox(parent, 'parameter', function (value) {
             if (value !== undefined) {
-                filter.text = value.toLowerCase();
+                setCookie('param_searched', value);
+                filterBy.text = value.toLowerCase();
+                listCurrentPage = 0;
+                showListPager(d3.select('#list-footer'), parameters, getParameterListFilter(), showParameterList);
                 showParameterList(d3.select('#list-content'));
             }
-        }, 'search for parameters by parameter key or name');
+        }, 'search for available parameters by parameter key or name');
+        s = getCookie('param_searched');
+        if (s !== undefined)
+            sb.set(s);
     }
 
     function getOnProcedureMouseEnterHandler(procedureId) {
-        return function() {
-            if (detailsPanel)
-                detailsPanel.update(procedureId);
+        return function () {
+            detailsPanel.update(procedureId);
         };
     }
 
     function addDetailedParameterFields(tr, datum) {
-        var temp, td = tr.append('td').attr('class', 'icon-col');
+        if (procedureKeyToProcedureDetailsMap[datum.p[0]] === undefined)
+            return;
+        var fragment = document.createDocumentFragment(), values, temp,
+            matched = datum.e.match(REGEX_PROC_KEY)[1];
 
-        temp = datum.e.match(REGEX_PROC_KEY)[1];
-        td.append('div').attr('class', 'small-param-icon')
-            .style('background-color', procedureColour[temp])
-            .text(temp);
+        values = document.createElement('td');
+        values.className = 'icon-col';
+        fragment.appendChild(values);
+        temp = addFieldFragmentContent(values, 'small-param-icon', matched);
+        temp.style.backgroundColor = procedureColour[matched];
 
-        td = tr.append('td').attr('class', 'content-col');
-        temp = addDiv(td, null, 'left-field');
-        addField(temp, datum.e, 'param-key');
-        addField(temp, datum.n, 'param-name');
+        values = document.createElement('td');
+        values.className = 'content-col';
+        fragment.appendChild(values);
+        temp = addFieldFragment(values, 'left-field');
+        addFieldFragmentContent(temp, 'param-key', datum.e);
+        addFieldFragmentContent(temp, 'param-name', datum.n);
+        temp = addFieldFragment(values, 'right-field');
+        addFieldFragmentContent(temp, 'procedure-name',
+            procedureKeyToProcedureDetailsMap[datum.p[0]].n);
 
-        temp = addDiv(td, null, 'right-field');
-        addField(temp, proceduresMap[datum.p].n, 'procedure-name');
         tr.on('click', getOnProcedureMouseEnterHandler(datum.p));
+        tr.node().appendChild(fragment);
     }
 
     function addSimpleParameterFields(tr, datum) {
@@ -7189,17 +8055,21 @@
     }
 
     function getParameterListFilter() {
-        var parameterFilter = null, filterField = filter.procedure;
-        if (filter.procedure) {
-            parameterFilter = function(datum) {
-                return filterField !== datum.e.match(REGEX_PROC_KEY)[1];
+        var parameterFilter = null, procedureId = filterBy.procedure;
+        if (procedureId === null) {
+            parameterFilter = function (datum) {
+                var matches = true;
+                if (datum && filterBy.text)
+                    matches = datum.filter.indexOf(filterBy.text) !== -1;
+                return !matches;
             };
         } else {
-            parameterFilter = function(datum) {
-                var matches = true;
-                if (datum && filter.text)
-                    matches = datum.filter.indexOf(filter.text) !== -1;
-                return !matches;
+            parameterFilter = function (datum) {
+                var p = datum.p, i, c = p.length;
+                for (i = 0; i < c; ++i)
+                    if (procedureId === p[i])
+                        return false;
+                return true;
             };
         }
         return parameterFilter;
@@ -7207,40 +8077,56 @@
 
     function showParameterList(parent) {
         clear(parent);
+        d3.selectAll('.list-goto-page')
+            .classed('list-current-page', false);
+        d3.select('#list-goto-page-' + listCurrentPage)
+            .classed('list-current-page', true);
         return showList(parent, parameters, 'param', getParameterListFilter(),
             isSimpleList ?
             addSimpleParameterFields : addDetailedParameterFields);
     }
 
     function showList(parent, list, type, filterOut, fieldGenerator) {
-        var datum, i, c, k = 0, tr, actions, first,
-            table = parent.append('table'), basket,
-            handler = type === 'gene' ? getGeneBasket : getParameterBasket;
+        var datum, i, c, numFound = 0, numRows = 0, tr, actions, firstRow,
+            defaultRowToSelect, table = parent.append('table'),
+            basket, start, end, handler = type === 'gene' ?
+            dcc.getGeneBasket : dcc.getParameterBasket,
+            rowCls = ['even-row', 'odd-row'];
         table.append('tr').append('td');
+        start = LIST_PAGE_SIZE * listCurrentPage;
+        end = start + LIST_PAGE_SIZE;
         for (i = 0, c = list.length; i < c; ++i) {
             datum = list[i];
             if (filterOut(datum))
                 continue;
-            tr = table.append('tr')
-                .attr('class', (k % 2 ? 'odd' : 'even') + '-row');
+
+            if (++numFound <= start)
+                continue;
+
+            tr = table.append('tr').attr('class', rowCls[++numRows % 2]);
             fieldGenerator(tr, datum);
             actions = tr.append('td').attr('class', 'actions-col');
             basket = handler(datum);
             addDiv(actions, null, basket.cls).on('click', basket.onclick);
-            if (k === 0)
-                first = tr;
-            k++;
-        }
-        if (first) {
-            c = first.on('click');
-            if (c)
-                c();
-        } else {
-            if (detailsPanel)
-                detailsPanel.hide();
+            if (numRows === 1)
+                firstRow = tr;
+
+            if (geneShowingDetails !== null) {
+                if (geneShowingDetails === dcc.getGeneStrainCentreId(datum))
+                    defaultRowToSelect = tr;
+            }
+
+            if (numFound === end)
+                break;
         }
 
-        return k;
+        if (defaultRowToSelect === undefined)
+            defaultRowToSelect = firstRow;
+        if (defaultRowToSelect) {
+            c = defaultRowToSelect.on('click');
+            if (c)
+                c();
+        }
     }
 
     function showGeneListControls(parent) {
@@ -7256,10 +8142,101 @@
                 .on('click', getGeneSortHandler(SORT_BY_GENE_CENTRE));
     }
 
+    function countActiveRows(list, filterOut) {
+        var i, c, k = 0;
+        for (i = 0, c = list.length; i < c; ++i) {
+            if (filterOut(list[i]))
+                continue;
+            k++;
+        }
+        return k;
+    }
+
+    function hideInactiveListPagerButtons() {
+        var cls = 'disabled-pager-button',
+            temp = listCurrentPage === listLastPage;
+        d3.select('#list-last-page').classed(cls, temp);
+        d3.select('#list-next-page').classed(cls, temp);
+
+        temp = listCurrentPage === 0;
+        d3.select('#list-first-page').classed(cls, temp);
+        d3.select('#list-previous-page').classed(cls, temp);
+    }
+
+    function getListPageSelectHandler(parent, page, fn) {
+        return function () {
+            if (listCurrentPage === page)
+                return;
+            listCurrentPage = page;
+            fn(parent);
+        };
+    }
+
+    function showListPager(footer, list, filter, displayHandler) {
+        clear(footer);
+        if (list === undefined || displayHandler === undefined) {
+            footer.style('display', 'none');
+            return 0;
+        }
+        if (filter === undefined) {
+            filter = function () {
+                return true;
+            };
+        }
+        var numActiveRows = countActiveRows(list, filter);
+        if (numActiveRows < LIST_PAGE_SIZE) {
+            footer.style('display', 'none');
+            return numActiveRows;
+        } else
+            footer.style('display', 'block');
+
+        var i, c, t, p = d3.select('#list-content');
+        listLastPage = Math.ceil(numActiveRows / LIST_PAGE_SIZE) - 1;
+        t = addDiv(footer, 'list-goto-page-container');
+        for (i = 0, c = listLastPage; i <= c; ++i)
+            addDiv(t, 'list-goto-page-' + i, 'list-goto-page', i + 1)
+                .on('click', getListPageSelectHandler(p, i, displayHandler));
+
+        addDiv(footer, 'list-last-page', null, 'last')
+            .on('click', function () {
+                if (listCurrentPage === listLastPage)
+                    return;
+                listCurrentPage = listLastPage;
+                hideInactiveListPagerButtons();
+                displayHandler(p);
+            });
+        addDiv(footer, 'list-next-page', null, 'next')
+            .on('click', function () {
+                if (listCurrentPage === listLastPage)
+                    return;
+                ++listCurrentPage;
+                hideInactiveListPagerButtons();
+                displayHandler(p);
+            });
+        addDiv(footer, 'list-previous-page', null, 'previous')
+            .on('click', function () {
+                if (listCurrentPage === 0)
+                    return;
+                --listCurrentPage;
+                hideInactiveListPagerButtons();
+                displayHandler(p);
+            });
+        addDiv(footer, 'list-first-page', null, 'first')
+            .on('click', function () {
+                if (listCurrentPage === 0)
+                    return;
+                listCurrentPage = 0;
+                hideInactiveListPagerButtons();
+                displayHandler(p);
+            });
+        hideInactiveListPagerButtons();
+        return numActiveRows;
+    }
+
     function getGeneSortHandler(field) {
-        return function() {
+        return function () {
             preventEventBubbling();
-            sorter.genes = field;
+            sortedBy.genes = field;
             sortGenes();
             showGeneList(d3.select('#list-content'));
             d3.select(this.parentNode).selectAll('.active')
@@ -7269,28 +8246,30 @@
     }
 
     function getProcedureClickHandler(procedure) {
-        return function() {
+        return function () {
             preventEventBubbling();
-            var parent = d3.select(this.parentNode.parentNode);
-            hideAndRemoveNodes(parent, getProcedureSelectHandler(procedure));
+            hideAndRemoveNodes(d3.select('#list-container'),
+                getProcedureSelectHandler(procedure));
         };
     }
 
     function getProcedureSelectHandler(procedure) {
-        return function() {
+        return function () {
             preventEventBubbling();
-            filter.procedure = procedure.c;
+            filterBy.procedure = procedure.i;
             showProcedureParameters(procedure);
         };
     }
 
     function showProcedureParameters(procedure) {
         isSimpleList = true;
-        var parent = d3.select('#list'), list = showListUIFrameWork(parent),
-            header = list.header, content = list.content,
-            count = showParameterList(content);
+        var list = showListUIFrameWork(d3.select('#list-container')),
+            count, header = list.header;
+        count = showListPager(list.footer, parameters,
+            getParameterListFilter(), showParameterList);
         showProcedureParameterHeader(header, procedure, count);
         showParameterListControls(header);
+        showParameterList(list.content);
     }
 
     function showProcedureParameterHeader(parent, procedure, count) {
@@ -7309,11 +8288,13 @@
 
     function showProcedures(parent) {
         var procedure, i, c, node, temp;
-        if (detailsPanel)
-            detailsPanel.changeMode(PROCEDURE_DETAILS);
-        clear(d3.select('#controls'));
-        clear(parent);
-        parent = addDiv(parent, 'procedures');
+
+        setReturnState('procedure');
+        heatmap = null;
+
+        parent = switchConfigurationMode(parent, PROCEDURE_DETAILS);
+
+        sortProcedures();
         for (i = 0, c = procedures.length; i < c; ++i) {
             procedure = procedures[i];
             node = addDiv(parent, null, 'procedure');
@@ -7322,11 +8303,14 @@
             temp.append('div')
                 .attr('class', 'procedure-icon-label')
                 .text(procedure.c);
+
             addDiv(node, null, null, procedure.n);
+            addDiv(node, null, 'procedure-key', procedure.k);
             addDiv(node, null, null, procedure.M + '.' + procedure.m);
             node.on('click', getProcedureClickHandler(procedure));
             node.on('mouseenter', getOnProcedureMouseEnterHandler(procedure.i));
         }
+        refitConfigure();
     }
 
     function showParameterListControls(parent) {
@@ -7343,9 +8327,9 @@
     }
 
     function getParameterSortHandler(field) {
-        return function() {
+        return function () {
             preventEventBubbling();
-            sorter.parameters = field;
+            sortedBy.parameters = field;
             sortParameters();
             showParameterList(d3.select('#list-content'));
             d3.select(this.parentNode).selectAll('.active')
@@ -7391,7 +8375,7 @@
      * 
      * @param {String} keyName Item property name to use a node key.
      */
-    DoubleLinkedList = function(keyName) {
+    var DoubleLinkedList = function (keyName) {
         this.head = null;
         this.tail = null;
         this.numNodes = 0;
@@ -7399,23 +8383,41 @@
     };
 
     DoubleLinkedList.prototype = {
-        count: function() {
+        count: function () {
             return this.numNodes;
         },
-        makeNode: function(data) {
-            var me = this, node = {};
+        makeNode: function (data) {
+            var me = this, node = {}, count, type;
             node.data = data;
             node.key = data[me.keyName];
             node.next = null;
             node.prev = null;
+
+            /* if this is a parameter selection list, account for
+             * selected parameters for a given procedure type */
+            if (this.keyName === PARAMETER_KEY_FIELD) {
+                type = data.pt;
+                if (dcc.selectedParametersCountForType === undefined) {
+                    dcc.selectedParametersCountForType = {};
+                    dcc.selectedParametersCountForType[type] = 1;
+                } else {
+                    count = dcc.selectedParametersCountForType[type];
+                    if (count === undefined)
+                        count = 1;
+                    else
+                        count++;
+                    dcc.selectedParametersCountForType[type] = count;
+                }
+            }
+
             return node;
         },
-        first: function(node) {
+        first: function (node) {
             var me = this;
             me.head = node;
             me.tail = node;
         },
-        append: function(node) {
+        append: function (node) {
             var me = this;
             node = me.makeNode(node);
             ++me.numNodes;
@@ -7428,7 +8430,7 @@
                 me.tail = node;
             }
         },
-        add: function(node) {
+        add: function (node) {
             var me = this;
             node = me.makeNode(node);
             ++me.numNodes;
@@ -7441,7 +8443,7 @@
                 me.head = node;
             }
         },
-        insertAfter: function(node, index) {
+        insertAfter: function (node, index) {
             var me = this, cursor = me.nodeAt(index);
             node = me.makeNode(node);
             ++me.numNodes;
@@ -7454,8 +8456,19 @@
                 cursor.next = node;
             }
         },
-        del: function(node) {
-            var me = this;
+        del: function (node) {
+            var me = this, count, type;
+            /* if this is a parameter selection list, account for
+             * selected parameters for a given procedure type */
+            if (this.keyName === PARAMETER_KEY_FIELD) {
+                type = node.data.pt;
+                count = dcc.selectedParametersCountForType[type];
+                count--;
+                if (count < 0)
+                    count = 0;
+                dcc.selectedParametersCountForType[type] = count;
+            }
+
             --me.numNodes;
             if (node.prev === null)
                 me.head = node.next;
@@ -7468,9 +8481,19 @@
                 node.next.prev = node.prev;
             delete node;
         },
-        empty: function() {
-            var me = this, temp = me.head, next;
+        empty: function () {
+            var me = this, temp = me.head, next, count, type;
             while (temp) {
+                /* if this is a parameter selection list, account for
+                 * selected parameters for a given procedure type */
+                if (this.keyName === PARAMETER_KEY_FIELD) {
+                    type = temp.data.pt;
+                    count = dcc.selectedParametersCountForType[type];
+                    count--;
+                    if (count < 0)
+                        count = 0;
+                    dcc.selectedParametersCountForType[type] = count;
+                }
                 next = temp.next;
                 delete temp;
                 temp = next;
@@ -7478,13 +8501,13 @@
             me.numNodes = 0;
             me.head = me.tail = null;
         },
-        nodeAt: function(index) {
+        nodeAt: function (index) {
             var me = this, cursor = me.head, count = 0;
             while (cursor !== null && count++ < index)
                 cursor = cursor.next;
             return cursor;
         },
-        find: function(key) {
+        find: function (key) {
             var me = this, cursor = me.head;
             while (cursor !== null) {
                 if (cursor.key === key)
@@ -7493,13 +8516,13 @@
             }
             return cursor;
         },
-        remove: function(key) {
+        remove: function (key) {
             var me = this, node = me.find(key);
             if (node !== null)
                 me.del(node);
             return me.count();
         },
-        moveTo: function(key, index) {
+        moveTo: function (key, index) {
             var me = this, node = me.find(key), successor = me.nodeAt(index);
             if (node !== null) {
                 if (successor !== node) {
@@ -7540,14 +8563,14 @@
                 }
             }
         },
-        print: function() {
+        print: function () {
             var me = this, cursor = me.head;
             while (cursor !== null) {
                 console.log(cursor);
                 cursor = cursor.next;
             }
         },
-        traverse: function(doSomething) {
+        traverse: function (doSomething) {
             var me = this, cursor = me.head;
             while (cursor !== null) {
                 doSomething(cursor.data, cursor.key);
@@ -7563,8 +8586,8 @@
      */
     function addGeneToSelectionList(gene) {
         var gid = gene.gid, sid = gene.sid, cid = gene.cid,
-            geneId = prepareGeneStrainCentreId(gid, sid, cid), datum;
-        if (genesMap[geneId] === undefined) {
+            geneId = dcc.prepareGeneStrainCentreId(gid, sid, cid), datum;
+        if (selectedGenesMap[geneId] === undefined) {
             datum = availableGenesMap[geneId];
             if (datum === undefined)
                 console.warn("Gene with centre id " + cid +
@@ -7637,7 +8660,7 @@
     function processGeneSelection(gene) {
         var geneStrain = gene.split('-'), gid, sid, cid;
         if (geneStrain === null || geneStrain.length < 1) {
-            alert("Invalid gene specificatin in URL: '" + temp[i] +
+            alert("Invalid gene specification in URL: '" + gene +
                 ".\nUse format <genotype id>-<strain id>-<centre id>");
             return;
         }
@@ -7676,7 +8699,7 @@
     function processListOfGenotypeIds(genes) {
         var temp, i, c;
 
-        genesMap = {}; /* maps genotype id to gene object */
+        selectedGenesMap = {}; /* maps genotype id to gene object */
         geneList = new DoubleLinkedList(GENE_KEY); /* ordered gene selection */
 
         if (genes && genes !== 'null') {
@@ -7701,14 +8724,14 @@
     function processListOfParameters(parameters) {
         var i, qeid, datum;
 
-        parametersMap = {}; /* maps parameter key to parameter object */
+        selectedParametersMap = {}; /* maps parameter key to parameter object */
         /* ordered list of selected parameters */
         parameterList = new DoubleLinkedList(PARAMETER_KEY_FIELD);
 
         if (parameters) {
             for (i in parameters) {
                 qeid = parameters[i];
-                if (parametersMap[qeid] === undefined) {
+                if (selectedParametersMap[qeid] === undefined) {
                     datum = availableParametersMap[qeid];
                     if (datum === undefined)
                         console.warn("Parameter " + qeid +
@@ -7748,20 +8771,29 @@
      * Sets new dimension for the list display.
      */
     function refitList() {
-        var content = document.getElementById('list-content');
-        if (content)
-            height(content, height('#list') - height('#list-header') - 1);
+        height('#list-content', height('#list-container') -
+            height('#list-header') - height('#list-footer') - 1);
     }
 
     /**
      * Set dimension for user interface components in configuration mode.
      */
     function refitConfigure() {
-        width('#list', width('#content') - width('#navigator')
-            - (detailsPanel ? width('#details-panel') : 0) - 2);
-        refitList();
-        if (detailsPanel)
+        if (heatmap !== null || width('body') < MIN_SCREEN_WIDTH_FOR_DETAILS)
+            detailsPanel.hide();
+
+        width('#main-content', width('#content')
+            - width('#navigator') - width('#details-panel'));
+        if (heatmap === null) {
+            refitList();
             detailsPanel.refit();
+        } else {
+            dcc.refitHeatmapPvalueGrid(heatmap);
+        }
+
+        var selectedRow = d3.select('.selected-row');
+        if (!selectedRow.empty())
+            selectedRow.node().scrollIntoView(true);
     }
 
     /**
@@ -7770,6 +8802,7 @@
      * the event handler invoked when the browser viewport resizes.
      */
     function resize() {
+        smallScreen = width(body) < SMALL_SCREEN_WIDTH;
         refitSidebar();
         refitContent();
         switch (mode) {
@@ -7803,19 +8836,27 @@
      */
     function showToolbar() {
         var header = d3.select('#header'), menu, account;
-        addDiv(header.append('a')
-            .attr('href', 'http://www.mousephenotype.org'), 'impc-logo')
+        addDiv(header, 'impc-logo')
             .attr('title', 'Version ' + dcc.version)
-            .on('click');
+            .on('click', function () {
+                mode = CONFIGURE;
+                showMode();
+            });
         menu = addDiv(header, 'menu');
+        addLink(menu, '/', 'IMPC');
         addLink(menu, '../phenodcc-summary', 'Reporting');
         addLink(menu, '../tracker', 'Tracker');
         addLink(menu, '../qc', 'Quality Control');
         addLink(menu, '../impress', 'IMPReSS');
         addLink(menu, 'manual.html', 'Help');
-        addDiv(menu, 'bookmark').text('Bookmark').on('click', function() {
+        addDiv(menu, 'bookmark').text('Bookmark').on('click', function () {
             preventEventBubbling();
-            showBookmark();
+            var temp = dcc.transientGeneParameter;
+            if (temp !== undefined)
+                showBookmark(dcc.getGeneStrainCentreId(temp.gene),
+                    temp.parameter);
+            else
+                showBookmark();
         });
 
         account = addDiv(header, 'account');
@@ -7835,6 +8876,81 @@
         }
     }
 
+    var styleToInline = [
+        'stroke', 'stroke-width', 'stroke-linecap',
+        'stroke-dasharray', 'stroke-opacity', 'fill', 'fill-opacity',
+        'text-anchor', 'font-size', 'font-weight', 'font-family'
+    ];
+    function inlineStyle(node) {
+        var i = 0, c = styleToInline.length, property, computedStyle;
+        if (node && node.nodeType === 1) {
+            computedStyle = window.getComputedStyle(node, "");
+            while (i < c) {
+                property = styleToInline[i];
+                node.style[property] = computedStyle.getPropertyValue(property);
+                ++i;
+            }
+        }
+    }
+
+    function inlineSubtree(node) {
+        inlineStyle(node);
+        node = node.firstChild;
+        while (node) {
+            inlineSubtree(node);
+            node = node.nextSibling;
+        }
+    }
+
+    function serializeDomToString(node) {
+        return node.outerHTML || new XMLSerializer().serializeToString(node);
+    }
+
+    function getImageSaver(td, label) {
+        return function () {
+            var win = window.open("", "Save visualisation as image"),
+                sv = d3.select(win.document.body),
+                ic = sv.append('div').attr('class', 'save-image-container'),
+                details = ic.append('div').attr('class', 'image-details'),
+                cv = ic.append('canvas')
+                .style('width', '800px')
+                .style('height', '600px'),
+                canvas = cv.node(), viz = td.select('svg');
+            inlineSubtree(viz.node());
+            canvg(canvas, serializeDomToString(viz.node()));
+            details.html(label);
+            sv = d3.select(win.document.head);
+            if (sv.select('link').empty()) {
+                sv.append('link')
+                    .attr('rel', 'stylesheet')
+                    .attr('type', 'text/css')
+                    .attr('href', location.origin
+                        + '/phenoview/css/saveimage.css');
+            }
+            win.focus();
+        };
+    }
+
+    function getImageDetails(gene, parameter) {
+        var label = '<table><tbody>', c;
+        if (gene !== undefined) {
+            c = centresMap[gene.cid];
+            if (c !== undefined)
+                label += '<tr><td>Centre:</td><td>' + c.f
+                    + '</td></tr>';
+            label += '<tr><td>Allele:</td><td>' + gene.alleleName
+                + '</td></tr><tr><td>Colony:</td><td>' + gene.genotype
+                + '</td></tr><tr><td>Strain:</td><td>' + gene.strain
+                + '</td></tr>';
+        }
+        if (parameter !== undefined) {
+            label += '<tr><td>Parameter:</td><td>' + parameter.n
+                + '</td></tr><tr><td>Parameter key:</td><td>' + parameter.e
+                + '</td></tr>';
+        }
+        return label + '</tbody></table>';
+    }
+
     /**
      * Every visualisation has a toolbar which is displayed at the top of
      * the visualisation. This toolbar is specific to the visualisation and
@@ -7848,20 +8964,24 @@
      * @param {String} qeid Parameter key.
      */
     function addVisualisationTools(td, gid, sid, cid, qeid) {
-        var geneId = prepareGeneStrainCentreId(gid, sid, cid),
+        var geneId = dcc.prepareGeneStrainCentreId(gid, sid, cid),
             tools = addDiv(td, null, 'viz-tools'), shareGroup,
-            bookmark = prepareBookmark(geneId, qeid);
+            bookmark = prepareBookmark(geneId, qeid), label;
         shareGroup = addDiv(tools, null, 'share-button')
             .attr('title', 'Share this visualisation');
         addDiv(shareGroup, null, 'email-button')
-            .on('click', function() {
+            .on('click', function () {
                 preventEventBubbling();
                 showBookmark(geneId, qeid);
             });
         addDiv(tools, null, 'download-button')
             .attr('title', 'Download raw data for this visualisation')
             .on('click', getRawDataDownloader(gid, sid, cid, qeid, bookmark));
-
+        label = getImageDetails(availableGenesMap[geneId],
+            availableParametersMap[qeid]);
+        addDiv(tools, null, 'save-button')
+            .attr('title', 'Save this visualisation as image file')
+            .on('click', getImageSaver(td, label));
         addDiv(tools, 'qcstatus-' + geneId + '-' + qeid);
     }
 
@@ -7891,9 +9011,62 @@
         vizContainer.strain = sid;
         vizContainer.parameter = parameter;
         vizContainer.plotType = determinePlotType(parameter);
-        if (vizContainer.plotType.t !== STR_IMAGE)
-            addVisualisationTools(td, gid, sid, cid, parameter[PARAMETER_KEY_FIELD]);
+        if (vizContainer.plotType.t !== STR_IMAGE &&
+            typeof parameter !== 'string') {
+            var key = parameter[PARAMETER_KEY_FIELD];
+            /* Dont't show toolbar for */
+            if (key.indexOf('_EVL_') === -1 &&
+                key.indexOf('_EVM_') === -1 &&
+                key.indexOf('_EVO_') === -1 &&
+                key.indexOf('_EVP_') === -1 &&
+                key.indexOf('_VIA_') === -1 &&
+                key.indexOf('_FER_') === -1)
+                addVisualisationTools(td, gid, sid, cid, key);
+        }
         return vizContainer;
+    }
+
+    /**
+     * At the top of the visualisation cluster, we will display overview
+     * information such as LacZ expression overview, gross pathology information
+     * etc. The conditions under which certain overviews are included will be
+     * determined based on the parameter list and the visualisation control
+     * setting. For instance, we will display LacZ expression overview if the
+     * overview is enabled and at least one of the parameters is an overview
+     * parameter. In this function, we add this entry to the visuslisation
+     * cluster.
+     * 
+     * @param {Object} table visualisation cluster table.
+     */
+    function addOverviewVisualisations(table) {
+        if (!(dcc.visualisationControl & controlOptions.overview))
+            return;
+
+        var overviewsToShow = {}, tr, k = 0;
+        parameterList.traverse(function (parameter) {
+            if (parameter.e.indexOf('_ALZ_') !== -1)
+                overviewsToShow['ALZ'] = true;
+            if (parameter.e.indexOf('_GEP_') !== -1)
+                overviewsToShow['GEP'] = true;
+            if (parameter.e.indexOf('_GPM_') !== -1)
+                overviewsToShow['GPM'] = true;
+            if (parameter.e.indexOf('_PAT_') !== -1)
+                overviewsToShow['PAT'] = true;
+            if (parameter.e.indexOf('_FER_') !== -1)
+                overviewsToShow['FER'] = true;
+            if (parameter.e.indexOf('_VIA_') !== -1)
+                overviewsToShow['VIA'] = true;
+        });
+        for (var i in overviewsToShow) {
+            k = 0;
+            tr = table.append('tr');
+            geneList.traverse(function (gene) {
+                visualisationCluster.push(
+                    addClusterRow(tr, gene.gid, gene.sid, gene.cid,
+                        'OVERVIEWS_' + i, k++));
+            });
+        }
+        return geneList.count();
     }
 
     /**
@@ -7904,26 +9077,51 @@
      * @param {Object} parent DOM node that will contain the cluster.
      */
     function createVisualisationCluster(parent) {
-        var table, tr, k = 0;
+        var table, tr, k = 0, parameter_key;
         parent = addDiv(parent, 'cluster');
         if (geneList.count() > 0 && parameterList.count() > 0) {
             table = parent.append("table").attr("class", "cluster");
             visualisationCluster = [];
-            parameterList.traverse(function(parameter) {
+            k += addOverviewVisualisations(table);
+            parameterList.traverse(function (parameter) {
                 tr = table.append('tr');
-                geneList.traverse(function(gene) {
-                    visualisationCluster.push(
-                        addClusterRow(tr, gene.gid, gene.sid, gene.cid,
-                            parameter, k++));
-                });
+                parameter_key = parameter.e;
+                if (parameter_key.indexOf('_GEP_') === -1 &&
+                    parameter_key.indexOf('_GPM_') === -1 &&
+                    parameter_key.indexOf('_VIA_') === -1 &&
+                    parameter_key.indexOf('_FER_') === -1 &&
+                    parameter_key.indexOf('_PAT_') === -1 &&
+                    parameter_key.indexOf('_ALZ_') === -1)
+                    geneList.traverse(function (gene) {
+                        visualisationCluster.push(
+                            addClusterRow(tr, gene.gid, gene.sid, gene.cid,
+                                parameter, k++));
+                    });
             });
         } else
             listIsEmpty(parent);
     }
 
+    /**
+     * Creates a single visualisation for the selected gene and
+     * parameter. This provides a preview functionality.
+     * 
+     * @param {Object} parent DOM node that will contain the cluster.
+     */
+    function createSingleVisualisation(parent) {
+        var table, tr, temp = dcc.transientGeneParameter, gene = temp.gene;
+        parent = addDiv(parent, 'cluster');
+        table = parent.append("table").attr("class", "cluster");
+        visualisationCluster = [];
+        tr = table.append('tr');
+        visualisationCluster.push(
+            addClusterRow(tr, gene.gid, gene.sid, gene.cid,
+                availableParametersMap[temp.parameter], 0));
+    }
+
     function attachVisualisationEventHandlers() {
         d3.select('#cluster')
-            .on("scroll", function() {
+            .on("scroll", function () {
                 preventEventBubbling();
                 informationBox.classed('hidden', true);
                 scrollInfobar(d3.event);
@@ -7936,9 +9134,18 @@
      * @param {Object} content Content area in the UI foundation.
      */
     function showVisualise(content) {
+        /* for single visualisation, show a larger visualisation */
+        if (dcc.transientGeneParameter !== undefined) {
+            visualisationWidth = ZOOM_LARGE;
+        }
         showVisualisationControls();
-        showInfobar(content);
-        createVisualisationCluster(content);
+        if (dcc.transientGeneParameter === undefined) {
+            showInfobar(content);
+            createVisualisationCluster(content);
+        } else {
+            showSingleGeneInfobar(content);
+            createSingleVisualisation(content);
+        }
         attachVisualisationEventHandlers();
         resize();
     }
@@ -7970,10 +9177,10 @@
         if (vizContainer.isRendered)
             return;
         var geneId =
-            prepareGeneStrainCentreId(vizContainer.gene,
+            dcc.prepareGeneStrainCentreId(vizContainer.gene,
                 vizContainer.strain,
                 vizContainer.centre);
-        plotParameter('viz-' + geneId + "-" + vizContainer.parameterKey +
+        plotParameter('viz-' + geneId + "-" + vizContainer.parameter.e +
             "-" + vizContainer.index, vizContainer);
         vizContainer.isRendered = true;
     }
@@ -7984,12 +9191,20 @@
      * @param {Boolean} forced If true, the visualisation will be re-rendered.
      */
     function refreshVisualisationCluster(forced) {
-        var i, c = visualisationCluster.length,
+        var i, c = visualisationCluster.length, p,
             vizContainer, clusterNode, isVisible;
         if (c > 0) {
             clusterNode = d3.select('#cluster');
             for (i = 0; i < c; ++i) {
                 vizContainer = visualisationCluster[i];
+                p = vizContainer.parameter;
+                if (typeof p === 'string' && p.indexOf('OVERVIEWS_') !== -1) {
+                    if (dcc.visualisationControl & controlOptions.overview)
+                        vizContainer.style('display', 'block');
+                    else
+                        vizContainer.style('display', 'none');
+                }
+
                 vizContainer.isVisible = isVisible =
                     isVisualisationVisible(vizContainer, clusterNode);
                 if (forced || !isVisible) {
@@ -7997,8 +9212,15 @@
                     clear(vizContainer);
                     vizContainer.classed('loading', true);
                 }
-                if (isVisible)
+                if (isVisible && (!vizContainer.isRendered ||
+                    !vizContainer.viz)) {
                     renderVisualisation(vizContainer);
+                }
+            }
+            if (c === 1) {
+                vizContainer = visualisationCluster[0];
+                if (vizContainer.plotType.t === STR_IMAGE)
+                    vizContainer.select('.start-image-viewer').on('click')();
             }
         }
     }
@@ -8009,6 +9231,7 @@
     function showMode() {
         var content = d3.select('#content');
         clear(content);
+        setCookie('mode', mode);
         switch (mode) {
             case VISUALISE:
                 setDatapointRadius(ZOOM_SMALL);
@@ -8020,6 +9243,14 @@
                 break;
         }
     }
+
+    dcc.visualiseSelection = function () {
+        var sidebar = d3.select('#sidebar');
+        mode = VISUALISE;
+        sidebar.style('display', 'block')
+            .style('width', sidebar.savedWidth);
+        showMode();
+    };
 
     /**
      * Display user interface framework which provides the DOM node foundation
@@ -8043,7 +9274,7 @@
      * @param {[String]} parameters Array of parameter keys.
      */
     function startEngine(genesString, parameters) {
-        loadConfigData(body, function() {
+        loadConfigData(body, function () {
             processListOfGenotypeIds(genesString);
             processListOfParameters(parameters);
             if (geneList.count() === 0 || parameterList.count() === 0)
@@ -8061,16 +9292,51 @@
      * @param {String} genesString Comma separated list of genotype ids.
      * @param {String} parametersString Comma separated list of parameter specs.
      */
-    dcc.visualise = function(genesString, parametersString) {
+    dcc.visualise = function (genesString, parametersString) {
+        var restoreState = false;
+
         /* JSP sets the value to 'null' when query params are unspecified */
-        if (genesString === 'null')
-            genesString = undefined;
+        if (genesString === 'null') {
+            restoreState = true;
+
+            /* see if genes were saved in the browser cookies */
+            genesString = getCookie('genes');
+        }
         if (parametersString === 'null') {
-            parametersString = undefined;
+            restoreState = true;
+
+            /* see if parameters were saved in the browser cookies */
+            parametersString = getCookie('parameters');
+        }
+
+        /* if p-value threshold was supplied in the URL, overwrite cookie value.
+         * if p-value threshold was not supplied, use cookie value if exists.
+         * otherwise, use default app value. */
+        if (dcc.pvalueThreshold === undefined) {
+            var savedPvalueThreshold = getCookie('pvalue_threshold');
+            if (savedPvalueThreshold === undefined ||
+                savedPvalueThreshold === '')
+                dcc.pvalueThreshold = DEFAULT_PVALUE_THRESHOLD;
+            else
+                dcc.pvalueThreshold = savedPvalueThreshold;
+            setCookie('pvalue_threshold', dcc.pvalueThreshold);
+        }
+
+        /* we only wish to return to the last state if the genes or
+         * parameters were not explicitly specified in the URL. */
+        if (restoreState) {
+            stateToReturnTo = getCookie('state');
+            centreShowingDetails = getCookie('centre');
+            geneShowingDetails = getCookie('gene');
+            procedureShowingDetails = getCookie('procedure');
+            mode = getCookie('mode');
+        }
+
+        if (genesString === undefined || parametersString === undefined)
             startEngine(genesString, parametersString);
-        } else
+        else
             d3.json('rest/expand?gids=' + genesString +
-                '&types=' + parametersString, function(data) {
+                '&types=' + parametersString, function (data) {
                     if (data && data.success)
                         startEngine(genesString, data.parameters);
                     else
@@ -8079,36 +9345,44 @@
     };
 
     function showSelectedGenes(parent) {
+        d3.select('#genes-basket-browse').classed('navigator-selected', true);
         isSimpleList = false;
-        filter.centre = null;
-        var list = showListUIFrameWork(parent),
-            header = list.header, content = list.content;
-        showSelectedGeneList(content);
+        filterBy.centre = null;
+        var list = showListUIFrameWork(parent), header = list.header;
+        showSelectedGeneList(list.content);
         showSelectedGeneListHeader(header);
         showSelectedGeneListControls(header);
+        showListPager(list.footer);
+        refitList();
     }
 
     function showSelectedParameters(parent) {
+        d3.select('#parameters-basket-browse')
+            .classed('navigator-selected', true);
         isSimpleList = false;
-        filter.procedure = null;
+        filterBy.procedure = null;
         var list = showListUIFrameWork(parent),
             header = list.header, content = list.content;
         showSelectedParameterList(content);
         showSelectedParameterListHeader(header);
         showSelectedParameterListControls(header);
+        showListPager(list.footer);
+        refitList();
     }
 
     function showSelectedGeneList(parent) {
-        filter.centre = null;
+        filterBy.centre = null;
         var selector = new Selector('gene', parent, geneList,
-            genesMap, GENE_KEY, addDetailedGeneFields, getGeneListFilter());
+            selectedGenesMap, GENE_KEY, addDetailedGeneFields,
+            getGeneListFilter());
         selector.show();
     }
 
     function showSelectedParameterList(parent) {
-        filter.centre = null;
+        filterBy.centre = null;
         var selector = new Selector('parameter', parent, parameterList,
-            parametersMap, PARAMETER_KEY_FIELD, addDetailedParameterFields,
+            selectedParametersMap, PARAMETER_KEY_FIELD,
+            addDetailedParameterFields,
             getParameterListFilter());
         selector.show();
     }
@@ -8119,27 +9393,27 @@
     }
 
     function showSelectedGeneListHeader(parent) {
-        new SearchBox(parent, 'gene', function(value) {
+        new SearchBox(parent, 'gene', function (value) {
             if (value !== undefined) {
-                filter.text = value.toLowerCase();
+                filterBy.text = value.toLowerCase();
                 showSelectedGeneList(d3.select('#list-content'));
             }
-        }, 'search for genes by allele, strain or genotype');
+        }, 'search within selected genes by allele, strain or genotype');
     }
 
     function showSelectedParameterListHeader(parent) {
-        new SearchBox(parent, 'parameter', function(value) {
+        new SearchBox(parent, 'parameter', function (value) {
             if (value !== undefined) {
-                filter.text = value.toLowerCase();
+                filterBy.text = value.toLowerCase();
                 showSelectedParameterList(d3.select('#list-content'));
             }
-        }, 'search for parameters by key or name');
+        }, 'search within selected parameters by key or name');
     }
 
     function showSelectedGeneListControls(parent) {
         addDiv(parent, null, 'empty-selection', 'Empty selection')
             .on('click',
-                function() {
+                function () {
                     preventEventBubbling();
                     emptyGeneSelection();
                     listIsEmpty(d3.select('#list-content'));
@@ -8149,14 +9423,14 @@
     function showSelectedParameterListControls(parent) {
         addDiv(parent, null, 'empty-selection', 'Empty selection')
             .on('click',
-                function() {
+                function () {
                     preventEventBubbling();
                     emptyParameterSelection();
                     listIsEmpty(d3.select('#list-content'));
                 });
     }
 
-    var DetailsPanel = function(parent) {
+    var DetailsPanel = function (parent) {
         /* Four modes:
          * 1. Centre details (show centre details)
          * 2. Gene details (show procedures and parameters with data)
@@ -8170,44 +9444,62 @@
         this.init();
     };
 
+    function getVisualisationPreviewHandler(geneId, parameterKey) {
+        return function () {
+            dcc.transientGeneParameter = {
+                'gene': availableGenesMap[geneId],
+                'parameter': parameterKey
+            };
+            dcc.visualiseSelection();
+        };
+    }
     DetailsPanel.prototype = {
-        init: function() {
+        init: function () {
             var me = this;
             me.parent = addDiv(me.parent, 'details-panel');
+            me.hide();
         },
-        hide: function() {
+        hide: function () {
             var me = this;
             me.parent.style('display', 'none');
         },
-        changeMode: function(mode) {
+        show: function () {
+            var me = this;
+            me.parent.style('display', 'block');
+        },
+        changeMode: function (mode) {
             var me = this, parent = me.parent;
+            me.show();
             clear(parent);
             switch (mode) {
-                case 1: /* centre details */
+                case CENTRE_DETAILS:
                     me.node = addDiv(parent, 'centre-details');
                     me.proc = addDiv(me.node, 'procedures-with-data');
                     me.procName = addDiv(me.node, 'procedure-name');
                     me.mode = mode;
                     break;
-                case 2: /* procedures and parameters with data */
+                case PROCEDURES_AND_PARAMS_WITH_DATA:
                     me.title = addDiv(parent, 'with-data-title');
                     me.node = addDiv(parent, 'with-data');
                     me.proc = addDiv(me.node, 'procedures-with-data');
+                    me.procName = addDiv(me.node, 'procedure-name');
                     me.procTitle = addDiv(me.node, 'procedure-with-data');
                     me.param = addDiv(me.node, 'parameters-with-data');
                     me.mode = mode;
                     break;
-                case 3: /* procedure details */
+                case PROCEDURE_DETAILS:
                     me.node = addDiv(parent, 'procedure-details');
                     me.mode = mode;
                     break;
             }
             me.refit();
         },
-        getParametersHandler: function(procedure, context) {
+        getParametersHandler: function (procedure, context) {
             var me = this, cls = 'selected-procedure';
-            return function() {
+            return function () {
                 var node = d3.select(this);
+                procedureShowingDetails = procedure.c;
+                setCookie('procedure', procedureShowingDetails);
                 d3.select(node.node().parentNode)
                     .select('.' + cls).classed(cls, false);
                 node.classed(cls, true);
@@ -8215,8 +9507,8 @@
                 d3.json("rest/available/" + procedure.i
                     + '?cid=' + context.cid
                     + '&gid=' + context.gid
-                    + '&sid=' + context.sid, function(data) {
-                        var n = me.param, temp, i, c, p;
+                    + '&sid=' + context.sid, function (data) {
+                        var n = me.param, temp, i, c, p, t;
                         clear(n);
                         if (data.success) {
                             temp = data.available;
@@ -8226,8 +9518,14 @@
                                  * means that the parameter is either meta-data or
                                  * unplottable. */
                                 if (p) {
-                                    n.append('div').attr('class', 'parameter-id').text(p.e);
-                                    n.append('div').attr('class', 'parameter-name').text(p.n);
+                                    t = addDiv(n, null, 'gene-details-parameter-preview')
+                                        .attr('title', 'Click to preview visualisation');
+                                    addDiv(t, null, 'parameter-id', p.e);
+                                    addDiv(t, null, 'parameter-name', p.n);
+                                    t.on('click', getVisualisationPreviewHandler(geneShowingDetails, p.e));
+
+                                    var basket = dcc.getParameterBasket(p);
+                                    addDiv(n, null, basket.cls).on('click', basket.onclick);
                                 }
                             }
                         }
@@ -8235,20 +9533,20 @@
                     });
             };
         },
-        getProcedureNameSetter: function(p) {
+        getProcedureNameSetter: function (p) {
             var me = this;
-            return function() {
+            return function () {
                 me.procName.html(p.n);
             };
         },
-        showProceduresWithData: function(available, context, noParameters) {
+        showProceduresWithData: function (available, context, noParameters) {
             var me = this, i, c, proc, details = me.proc,
-                temp = [], alreadyIn = {};
+                temp = [], alreadyIn = {}, defaultCellToSelect;
 
             clear(details);
             me.procName.html('');
             for (i = 0, c = available.length; i < c; ++i) {
-                proc = proceduresMap[available[i]];
+                proc = procedureKeyToProcedureDetailsMap[available[i]];
                 if (alreadyIn[proc.c] === undefined) {
                     alreadyIn[proc.c] = 1;
                     temp.push({
@@ -8264,17 +9562,20 @@
                     .attr('class', 'small-param-icon')
                     .style('background-color', procedureColour[proc.c])
                     .text(proc.c);
-                if (noParameters === undefined)
+                if (noParameters === undefined) {
+                    if (procedureShowingDetails === proc.c)
+                        defaultCellToSelect = c;
                     c.on('click', me.getParametersHandler(proc.p, context));
-                else
+                } else
                     c.on('mouseenter', me.getProcedureNameSetter(proc.p));
             }
-            c = details.select('.small-param-icon');
-            temp = c.on('click');
+            if (defaultCellToSelect === undefined)
+                defaultCellToSelect = details.select('.small-param-icon');
+            temp = defaultCellToSelect.on('click');
             if (temp)
-                temp.call(c.node());
+                temp.call(defaultCellToSelect.node());
         },
-        addLineDetails: function(datum) {
+        addLineDetails: function (datum) {
             var me = this, title = me.title;
             clear(title);
             title.append('img')
@@ -8286,13 +9587,14 @@
                 + (datum.alleleName ? datum.alleleName
                     : datum.geneSymbol));
         },
-        showProcedureDetails: function(procedureId) {
+        showProcedureDetails: function (procedureId) {
             var me = this, n = me.node;
             clear(n);
-            d3.json('rest/procedure/details/' + procedureId, function(data) {
+            d3.json('rest/procedure/details/' + procedureId, function (data) {
                 var i, c;
                 if (data) {
-                    addDiv(n, null, null, proceduresMap[procedureId].n);
+                    addDiv(n, null, null,
+                        procedureKeyToProcedureDetailsMap[procedureId].n);
                     for (i = 0, c = data.length; i < c; ++i) {
                         addDiv(n, null, 'section-title', me.sectionTitle[i]);
                         n.append('div').html(data[i]);
@@ -8305,20 +9607,21 @@
                 }
             });
         },
-        showCentreActivity: function(cid) {
+        showCentreActivity: function (cid) {
             var me = this, n = me.node, activities;
             clear(n);
             activities = centreActivity[cid];
         },
-        update: function(datum) {
+        update: function (datum) {
             var me = this;
             me.parent.style('display', 'block');
             switch (me.mode) {
                 case 1: /* centre details */
                     d3.json('rest/available/centre/' + datum,
-                        function(data) {
+                        function (data) {
                             if (data && data.success)
-                                me.showProceduresWithData(data.available, datum, true);
+                                me.showProceduresWithData(data.available,
+                                    datum, true);
                             else {
                                 clear(me.proc);
                                 me.refit();
@@ -8330,7 +9633,7 @@
                     clear(me.param);
                     d3.json('rest/available?cid=' + datum.cid +
                         '&gid=' + datum.gid + '&sid=' + datum.sid,
-                        function(data) {
+                        function (data) {
                             if (data && data.success)
                                 me.showProceduresWithData(data.available, datum);
                             else {
@@ -8340,11 +9643,14 @@
                         });
                     break;
                 case 3: /* procedure details */
-                    me.showProcedureDetails(datum);
+                    if (datum instanceof Array)
+                        me.showProcedureDetails(datum[0]);
+                    else
+                        me.showProcedureDetails(datum);
                     break;
             }
         },
-        refit: function() {
+        refit: function () {
             var me = this;
             switch (me.mode) {
                 case 1: /* centre details */
@@ -8360,7 +9666,8 @@
         }
     };
 
-    Selector = function(mode, parent, list, map, key, entryMaker, filterOut) {
+    var Selector = function (mode, parent, list, map, key,
+        entryMaker, filterOut) {
         this.mode = mode;
         this.parent = parent;
         this.list = list;
@@ -8371,7 +9678,7 @@
     };
 
     Selector.prototype = {
-        show: function() {
+        show: function () {
             var me = this, key = me.key, parent = me.parent, list = me.list;
 
             clear(parent);
@@ -8380,7 +9687,7 @@
                     keyValue, filterOut = me.filterOut;
 
                 table.append('tr').append('td');
-                list.traverse(function(datum) {
+                list.traverse(function (datum) {
                     if (filterOut(datum))
                         return;
                     keyValue = datum[key];
@@ -8404,17 +9711,17 @@
     };
 
     function getDragStartHandler(selector, key, datum) {
-        return function() {
+        return function () {
             preventEventBubbling();
             var item = createDraggedItem(selector, datum,
                 body, d3.mouse(this)[0]);
 
             body.classed('unselectable', true)
-                .on('mouseup.drag', function() {
+                .on('mouseup.drag', function () {
                     preventEventBubbling();
                     moveItemToNewLocation(selector);
                 })
-                .on('mousemove.drag', function() {
+                .on('mousemove.drag', function () {
                     preventEventBubbling();
                     positionDraggedItem(item);
                 });
@@ -8449,7 +9756,7 @@
     }
 
     function getDragHandler() {
-        return function() {
+        return function () {
             preventEventBubbling();
             if (isDraggingInProgress) {
                 var node = d3.select(this),
@@ -8470,7 +9777,7 @@
 
 
     function getDragMouseOverHandler() {
-        return function() {
+        return function () {
             preventEventBubbling();
             if (isDraggingInProgress) {
                 previousDragOverRow = currentDragOverRow;
@@ -8493,7 +9800,7 @@
     }
 
     function getDragStopHandler(selector) {
-        return function() {
+        return function () {
             preventEventBubbling();
             if (isDraggingInProgress) {
                 body.classed('unselectable', false);
@@ -8514,7 +9821,7 @@
     }
 
     function getAddToSelectionHandler(selector, key, datum) {
-        return function() {
+        return function () {
             preventEventBubbling();
 
             /* add item to selection */
@@ -8527,7 +9834,7 @@
     }
 
     function getRemoveFromSelectionHandler(selector, key, parent) {
-        return function() {
+        return function () {
             preventEventBubbling();
 
             /* use clicked on the remove icon:
@@ -8552,12 +9859,12 @@
         tr.transition().duration(300).style('opacity', 0);
         tr.select('td')
             .selectAll('*').transition().duration(300).style('height', "0px")
-            .each("end", function() {
+            .each("end", function () {
                 tr.remove();
             });
     }
 
-    SearchBox = function(parent, id, onChange, emptyText) {
+    var SearchBox = function (parent, id, onChange, emptyText) {
         this.parent = parent;
         this.id = id;
         this.onChange = onChange;
@@ -8566,16 +9873,15 @@
     };
 
     SearchBox.prototype = {
-        render: function() {
+        render: function () {
             var me = this,
                 root = addDiv(me.parent, me.id + '-searchbox', 'searchbox'),
-                inputBox = root.append('input')
-                .attr('placeholder', me.emptyText),
+                inputBox = root.append('input').attr('placeholder',
+                me.emptyText),
                 inputBoxNode = inputBox.node(),
                 clearBox = addDiv(root, null, 'clear-searchbox')
                 .style('display', 'none');
-
-            inputBox.on('keyup', function() {
+            me.onkeyup = function () {
                 preventEventBubbling();
                 if (inputBoxNode.value === '') {
                     clearBox.style('display', 'none');
@@ -8584,10 +9890,14 @@
                     inputBox.classed('hide-glass', true);
                     clearBox.style('display', 'block');
                 }
-                me.onChange(this.value);
+                me.onChange(inputBoxNode.value);
+            };
+
+            inputBox.on('keyup', function () {
+                throttle(me.onkeyup, SEARCH_THROTTLE_DELAY, me);
             });
 
-            clearBox.on('click', function() {
+            clearBox.on('click', function () {
                 preventEventBubbling();
                 inputBoxNode.value = '';
                 clearBox.style('display', 'none');
@@ -8595,6 +9905,14 @@
                 me.onChange('');
             });
             me.onChange();
+            me.inputBox = inputBox;
+            me.clearBox = clearBox;
+        },
+        set: function (value) {
+            var me = this, inputBox = me.inputBox,
+                inputBoxNode = inputBox.node();
+            inputBoxNode.value = value;
+            inputBox.on('keyup')();
         }
     };
 
@@ -8654,7 +9972,7 @@
         return data;
     }
 
-    Beeswarm = function(data, xaxis, radius) {
+    var Beeswarm = function (data, xaxis, radius) {
         this.data = data;
         this.xaxis = xaxis;
         this.radius = radius;
@@ -8662,7 +9980,7 @@
 
     var scaledYComparator = getComparator('sy');
     Beeswarm.prototype = {
-        swarm: function(leaning, bound) {
+        swarm: function (leaning, bound) {
             var me = this, s = [], x = me.xaxis, v, ub, lb,
                 r = me.radius, data = me.data, i, c = data.length;
             data.sort(scaledYComparator);
@@ -8790,105 +10108,255 @@
     }
 
     /* colours from http://tools.medialab.sciences-po.fr/iwanthue/index.php */
-    var iWantHue = ["#47BEC0",
-        "#F04A1C",
-        "#DB41E2",
-        "#48C621",
-        "#60385A",
-        "#3E5617",
-        "#7092EC",
-        "#F13F7A",
-        "#BEA927",
-        "#76360E",
-        "#D99BBB",
-        "#33626B",
-        "#E39366",
-        "#76B465",
-        "#9F2F84",
-        "#D885E0",
-        "#6B4EB5",
-        "#AE252B",
-        "#496298",
-        "#E87F2B",
-        "#C26769",
-        "#61B1D8",
-        "#AA7922",
-        "#A3A556",
-        "#386748",
-        "#369E2B",
-        "#563B1C",
-        "#E039A3",
-        "#B15FE7",
-        "#E8669B",
-        "#5FBC9C",
-        "#9C5B98",
-        "#752D42",
-        "#72771C",
-        "#A145B3",
-        "#454556",
-        "#A76E51",
-        "#96A7DB",
-        "#832F2C",
-        "#3E8F9B",
-        "#806A8F",
-        "#EA5D53",
-        "#E664DC",
-        "#BF99E0",
-        "#C39A59",
-        "#635515",
-        "#E49D33",
-        "#A9364D",
-        "#493E7A",
-        "#C16247",
-        "#732B68",
-        "#8370EA",
-        "#7DC332",
-        "#BC3014",
-        "#DE3555",
-        "#A8336D",
-        "#63809A",
-        "#869D2B",
-        "#2E6B19",
-        "#E269B9",
-        "#46C086",
-        "#AE728B",
-        "#86B4C1",
-        "#4B95D5",
-        "#46BB62",
-        "#E82FBE",
-        "#EC3C3A",
-        "#224A43",
-        "#9E6EC8",
-        "#E86677",
-        "#3B8479",
-        "#426FD6",
-        "#4E8049",
-        "#E92C8A",
-        "#80783D",
-        "#955E24",
-        "#A691BE",
-        "#6069B4",
-        "#589F73",
-        "#324C6F",
-        "#DA7DA7",
-        "#EE8E8B",
-        "#BA32A6",
-        "#5E4092",
-        "#A9B92D",
-        "#9B3D1A",
-        "#733E2C",
-        "#454A20",
-        "#C8A144",
-        "#D1632B",
-        "#975061",
-        "#5F8732",
-        "#69A531",
-        "#ED7A61",
-        "#254D21",
-        "#A1BA5E",
-        "#40CE47",
-        "#7A5066",
-        "#CA2C69",
-        "#735228"];
+    var iWantHue = ["#6F5F2E",
+        "#EE3FF2",
+        "#44E337",
+        "#3AA6E9",
+        "#F52D19",
+        "#55ECCC",
+        "#69255A",
+        "#F5ED30",
+        "#ECB5C5",
+        "#5864DD",
+        "#EE417D",
+        "#2D7F21",
+        "#F2E0A1",
+        "#2E7A6F",
+        "#E88269",
+        "#E8A11E",
+        "#611419",
+        "#D696EB",
+        "#123556",
+        "#9BE276",
+        "#172414",
+        "#A6CBCA",
+        "#886063",
+        "#B03CA3",
+        "#A21A18",
+        "#7873B1",
+        "#D2671B",
+        "#ACA02D",
+        "#F421A3",
+        "#45D5EF",
+        "#8FB879",
+        "#B7668E",
+        "#894711",
+        "#6A889B",
+        "#33510B",
+        "#C4924D",
+        "#563D91",
+        "#57F29A",
+        "#C7A282",
+        "#922D4D",
+        "#B6CAF1",
+        "#431C2A",
+        "#A85FD7",
+        "#32AD2B",
+        "#CBEB5B",
+        "#7F8769",
+        "#3576D3",
+        "#3C210F",
+        "#51AC8A",
+        "#E23755",
+        "#D5D0B6",
+        "#35363B",
+        "#F0C961",
+        "#9AF034",
+        "#E66FBE",
+        "#B6AD65",
+        "#9B226E",
+        "#E9788F",
+        "#40457C",
+        "#C88683",
+        "#AB4645",
+        "#EB3D3B",
+        "#AEE3B1",
+        "#83C13A",
+        "#AA84AD",
+        "#371A40",
+        "#234B42",
+        "#5CEA71",
+        "#4AA463",
+        "#489DA3",
+        "#E841D0",
+        "#8F741E",
+        "#E6B6EF",
+        "#AD6950",
+        "#E86B46",
+        "#D5EA7F",
+        "#743E25",
+        "#E277E4",
+        "#5FEAE7",
+        "#A683EC",
+        "#C655EA",
+        "#886B52",
+        "#E3DB56",
+        "#B069BB",
+        "#62445A",
+        "#86778A",
+        "#6DA244",
+        "#41865D",
+        "#E0EBF1",
+        "#485764",
+        "#8CE092",
+        "#B47522",
+        "#7E2314",
+        "#76914E",
+        "#E28BBC",
+        "#27612E",
+        "#B2AAA4",
+        "#E2609B",
+        "#2A52B3",
+        "#5E112D",
+        "#EEBA84",
+        "#63C7B6",
+        "#8EEB5F",
+        "#AC9BED",
+        "#686A62",
+        "#EDD4E9",
+        "#623D3C",
+        "#84A4DE",
+        "#54741B",
+        "#9ADFF4",
+        "#97AD37",
+        "#EA521C",
+        "#4BDDA0",
+        "#4979B3",
+        "#EA6269",
+        "#CE4A42",
+        "#7B8DF7",
+        "#F4C231",
+        "#8C8B35",
+        "#48C474",
+        "#33717D",
+        "#8B66EE",
+        "#575639",
+        "#7F4E76",
+        "#50B7DD",
+        "#936831",
+        "#AF4522",
+        "#E5854F",
+        "#8E3889",
+        "#B836BA",
+        "#5D2C6F",
+        "#53C055",
+        "#BF516E",
+        "#7EAEA3",
+        "#3F8AAD",
+        "#D73CA1",
+        "#9AAEBE",
+        "#376145",
+        "#1B224E",
+        "#9D885C",
+        "#295574",
+        "#E8A14D",
+        "#B0E9D8",
+        "#BFB51F",
+        "#A72239",
+        "#221C2C",
+        "#D3E6A9",
+        "#243613",
+        "#70CF28",
+        "#E1BFB5",
+        "#484A0B",
+        "#E5D37A",
+        "#63847B",
+        "#AC7D92",
+        "#854050",
+        "#988A7E",
+        "#C33319",
+        "#B2DB2E",
+        "#EA2D8D",
+        "#7E3C9B",
+        "#BBD986",
+        "#99B187",
+        "#84ADD2",
+        "#77589C",
+        "#44385B",
+        "#5598F3",
+        "#B56779",
+        "#57402C",
+        "#55A017",
+        "#5B6E8F",
+        "#F0A496",
+        "#4B1235",
+        "#CE8B6D",
+        "#AC508D",
+        "#88EFB6",
+        "#ED8625",
+        "#6B6C22",
+        "#CFA5CC",
+        "#72CAD4",
+        "#B8931F",
+        "#C1AA4E",
+        "#A18746",
+        "#A970A9",
+        "#CFBF8C",
+        "#415E91",
+        "#838CBD",
+        "#AD9AB5",
+        "#653A0C",
+        "#B3B1E6",
+        "#EEA470",
+        "#D995A8",
+        "#6259B0",
+        "#AC8DCF",
+        "#36201F",
+        "#755AC9",
+        "#B65F30",
+        "#7B698E",
+        "#DDAA41",
+        "#E3EFC4",
+        "#80804B",
+        "#9668CA",
+        "#C72865",
+        "#CE8752",
+        "#49612A",
+        "#783A34",
+        "#C39568",
+        "#8E909C",
+        "#859C9A",
+        "#19302F",
+        "#474C3F",
+        "#2D4E9E",
+        "#647B53",
+        "#903F2A",
+        "#D890D4",
+        "#8B5C14",
+        "#1F3545",
+        "#6BB2E5",
+        "#328BBF",
+        "#6175C6",
+        "#3E86F4",
+        "#E3E4D5",
+        "#30270E",
+        "#759EE9",
+        "#6D8F6F",
+        "#9A554B",
+        "#B7DAEA",
+        "#4A3640",
+        "#D9766E",
+        "#316BDC",
+        "#ADB19B",
+        "#B3928E",
+        "#613F1F",
+        "#4B1D13",
+        "#2F306D",
+        "#3681C9",
+        "#F1B1D7",
+        "#A86837",
+        "#916942",
+        "#29251F",
+        "#CFB9D0",
+        "#EF25B2",
+        "#4C4BB3",
+        "#5A70D3",
+        "#BEC6DE",
+        "#514617",
+        "#D6D3DA",
+        "#DFE73A",
+        "#483C83",
+        "#982356",
+        "#6B77F6"];
 
 })();

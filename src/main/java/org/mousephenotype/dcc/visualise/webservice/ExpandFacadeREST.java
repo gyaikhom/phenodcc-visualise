@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import javax.ejb.Stateless;
@@ -104,7 +105,7 @@ public class ExpandFacadeREST extends AbstractFacade<String> {
             return null;
         }
         TypedQuery<String> q = em.createQuery(
-                "select distinct q.parameterKey from Parameter q, Procedure p, ProcedureHasParameters php, ProcedureHasSuperType phs, Annotation a where q.parameterId = php.parameterId.parameterId and p.procedureId = php.procedureId.procedureId and p.procedureId = phs.procedureId and phs.type in :procedureTypes and q.parameterKey = a.parameterId and a.genotypeId in :genotypeIds and (q.type not like '%media%' and q.type not like '%Media%') and q.isAnnotation = 1", String.class);
+                "select distinct q.parameterKey from Parameter q, Procedure p, ProcedureHasParameters php, ProcedureHasSuperType phs, Annotation a where q.parameterId = php.parameterId.parameterId and p.procedureId = php.procedureId.procedureId and p.procedureId = phs.procedureId and phs.type in :procedureTypes and q.parameterKey = a.parameterId and a.genotypeId in :genotypeIds and q.isAnnotation = 1", String.class);
         q.setParameter("genotypeIds", genotypeIds);
         q.setParameter("procedureTypes", procedureTypes);
         return q.getResultList();

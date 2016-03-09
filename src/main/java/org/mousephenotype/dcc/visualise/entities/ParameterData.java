@@ -15,6 +15,7 @@
  */
 package org.mousephenotype.dcc.visualise.entities;
 
+import java.io.Serializable;
 import java.util.List;
 import javax.xml.bind.annotation.XmlElement;
 
@@ -24,12 +25,15 @@ import javax.xml.bind.annotation.XmlElement;
  *
  * @author gyaikhom
  */
-public class ParameterData {
+public class ParameterData implements Serializable {
 
     private Integer parameterId;
     private String stableid;
     private String parameterName;
-    private Integer procedureId;
+    // IMPReSS does not associate procedures and parameters uniquely. Hence, for
+    // a given parameter key, it may be associated with multiple procedures.
+    private List<Integer> procedureId;
+    private Integer procedureType; // usd by heatmap
     private Integer weight;
     private Integer graphType;
     private String datatype;
@@ -40,6 +44,7 @@ public class ParameterData {
     private String incrementUnit;
     private Integer incrementMin;
     private List<String> options;
+    private String embryoStage;
 
     public ParameterData() {
     }
@@ -48,7 +53,8 @@ public class ParameterData {
             String parameterName, Integer weight, Integer graphType,
             String datatype, String unit, Integer incrementId,
             String incrementValue, String incrementType,
-            String incrementUnit, Integer incrementMin, List<String> options) {
+            String incrementUnit, Integer incrementMin, List<String> options,
+            String embryoStage) {
         this.parameterId = parameterId;
         this.stableid = stableid;
         this.parameterName = parameterName;
@@ -62,6 +68,7 @@ public class ParameterData {
         this.incrementUnit = incrementUnit;
         this.incrementMin = incrementMin;
         this.options = options;
+        this.embryoStage = embryoStage;
     }
 
     @XmlElement(name = "d")
@@ -182,11 +189,30 @@ public class ParameterData {
     }
 
     @XmlElement(name = "p")
-    public Integer getProcedureId() {
+    public List<Integer> getProcedureId() {
         return procedureId;
     }
 
-    public void setProcedureId(Integer procedureId) {
+    public void setProcedureId(List<Integer> procedureId) {
         this.procedureId = procedureId;
     }
+
+    @XmlElement(name = "pt")
+    public Integer getProcedureType() {
+        return procedureType;
+    }
+
+    public void setProcedureType(Integer procedureType) {
+        this.procedureType = procedureType;
+    }
+
+    @XmlElement(name = "em")
+    public String getEmbryoStage() {
+        return embryoStage;
+    }
+
+    public void setEmbryoStage(String embryoStage) {
+        this.embryoStage = embryoStage;
+    }
+    
 }

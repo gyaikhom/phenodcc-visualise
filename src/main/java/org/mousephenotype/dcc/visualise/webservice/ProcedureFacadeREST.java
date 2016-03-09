@@ -15,6 +15,7 @@
  */
 package org.mousephenotype.dcc.visualise.webservice;
 
+import org.mousephenotype.dcc.visualise.persistence.MemcacheHandler;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -53,25 +54,22 @@ public class ProcedureFacadeREST extends AbstractFacade<Procedure> {
     public List<String> getProcedureDetails(
             @PathParam("procedureId") Integer procedureId) {
         em = getEntityManager();
-        TypedQuery<String> q =
-                em.createQuery("SELECT s.sectionText FROM Sop o, Section s WHERE o.procedureId.procedureId = :procedureId AND o = s.sopId AND s.sectionTitleId.id IN (1,2) ORDER BY s.sectionTitleId.weight", String.class);
+        TypedQuery<String> q
+                = em.createQuery("SELECT s.sectionText FROM Sop o, Section s WHERE o.procedureId.procedureId = :procedureId AND o = s.sopId AND s.sectionTitleId.id IN (1,2) ORDER BY s.sectionTitleId.weight", String.class);
         q.setParameter("procedureId", procedureId);
         List<String> sections = q.getResultList();
         em.close();
         return sections;
     }
 
-    @GET
-    @Produces(MediaType.APPLICATION_JSON)
-    public ProcedurePack findProcedures() {
-        ProcedurePack p = new ProcedurePack();
-
+    public List<ProcedureData> getAllProcedures() {
+        List<ProcedureData> result = null;
         em = getEntityManager();
-        TypedQuery<ProcedureData> q =
-                em.createQuery("SELECT DISTINCT new org.mousephenotype.dcc.visualise.entities.ProcedureData(p.procedureId, p.procedureKey, p.name, p.majorVersion, p.minorVersion) FROM Pipeline l, PipelineHasProcedures php, Procedure p WHERE l.impc = 1 AND l = php.pipelineId AND php.procedureId = p ORDER BY p.name, p.majorVersion, p.minorVersion", ProcedureData.class);
-        List<ProcedureData> l = q.getResultList();
+        TypedQuery<ProcedureData> q
+                = em.createQuery("SELECT DISTINCT new org.mousephenotype.dcc.visualise.entities.ProcedureData(p.procedureId, p.procedureKey, p.name, p.majorVersion, p.minorVersion) FROM Pipeline l join PipelineHasProcedures php on (l = php.pipelineId) join Procedure p on (php.procedureId = p) WHERE l.impc = 1 and (p.procedureId NOT IN (select DISTINCT ip.procedureId FROM IgnoreProcedures ip)) ORDER BY p.name, p.majorVersion, p.minorVersion", ProcedureData.class);
+        result = q.getResultList();
 
-        for (ProcedureData d : l) {
+        for (ProcedureData d : result) {
             String key = d.getStableid();
             if (key != null && !key.isEmpty()) {
                 Matcher m = pattern.matcher(key);
@@ -80,8 +78,22 @@ public class ProcedureFacadeREST extends AbstractFacade<Procedure> {
                 }
             }
         }
-        p.setDataSet(l);
         em.close();
+        return result;
+    }
+
+    @GET
+    @Produces(MediaType.APPLICATION_JSON)
+    public ProcedurePack findProcedures() {
+        ProcedurePack p = new ProcedurePack();
+
+        MemcacheHandler mh = getMemcacheHandler();
+        List<ProcedureData> procedures = mh.getProcedures();
+        if (procedures == null) {
+            procedures = getAllProcedures();
+            mh.setProcedures(procedures);
+        }
+        p.setDataSet(procedures);
         return p;
     }
 }

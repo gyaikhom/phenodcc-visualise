@@ -28,19 +28,30 @@ public class PersistenceListener implements ServletContextListener {
     @Override
     public void contextInitialized(ServletContextEvent event) {
         ServletContext ctx = event.getServletContext();
-        PersistenceManager pm =
-                (PersistenceManager) ctx.getAttribute("PersistenceManager");
+        PersistenceManager pm
+                = (PersistenceManager) ctx.getAttribute("PersistenceManager");
         if (pm == null) {
             ctx.setAttribute("PersistenceManager", new PersistenceManager());
+        }
+        MemcacheHandler mh
+                = (MemcacheHandler) ctx.getAttribute("MemcacheHandler");
+        if (mh == null) {
+            ctx.setAttribute("MemcacheHandler", new MemcacheHandler());
         }
     }
 
     @Override
     public void contextDestroyed(ServletContextEvent event) {
         ServletContext ctx = event.getServletContext();
-        PersistenceManager pm =
-                (PersistenceManager) ctx.getAttribute("PersistenceManager");
+        PersistenceManager pm
+                = (PersistenceManager) ctx.getAttribute("PersistenceManager");
         pm.closeEntityManagerFactory();
         ctx.removeAttribute("PersistenceManager");
+        MemcacheHandler mh
+                = (MemcacheHandler) ctx.getAttribute("MemcacheHandler");
+        if (mh != null) {
+            mh.shutdown();
+        }
+        ctx.removeAttribute("MemcacheHandler");
     }
 }

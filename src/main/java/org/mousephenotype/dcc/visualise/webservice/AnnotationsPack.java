@@ -15,6 +15,7 @@
  */
 package org.mousephenotype.dcc.visualise.webservice;
 
+import java.util.Date;
 import java.util.List;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlSeeAlso;
@@ -30,10 +31,21 @@ import org.mousephenotype.dcc.visualise.entities.AnnotationData;
 @XmlSeeAlso(AnnotationData.class)
 @XmlType(propOrder = {"success", "total", "annotations"})
 public class AnnotationsPack extends AbstractRestResponse<AnnotationData> {
-
+    private Date lastUpdate;
+    
     @Override
     @XmlElement(name = "annotations")
     public List<AnnotationData> getDataSet() {
         return super.getDataSet();
     }
+
+    @XmlElement(name = "lastUpdate")
+    public Date getLastUpdate() {
+        return lastUpdate;
+    }
+
+    public void setLastUpdate(Date lastUpdate) {
+        this.lastUpdate = lastUpdate;
+    }
+    
 }

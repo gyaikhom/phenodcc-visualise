@@ -15,15 +15,12 @@
  */
 package org.mousephenotype.dcc.visualise.webservice;
 
-import java.util.ArrayList;
-import java.util.List;
 import javax.ejb.Stateless;
 import javax.persistence.EntityManager;
 import javax.persistence.TypedQuery;
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
 import org.mousephenotype.dcc.visualise.entities.KeyValueRecord;
-import org.mousephenotype.dcc.visualise.entities.ViabilityData;
 
 /**
  * Web service for retrieving fertility for a given genotype and parameter.
@@ -32,31 +29,36 @@ import org.mousephenotype.dcc.visualise.entities.ViabilityData;
  */
 @Stateless
 @Path("viability")
-public class ViabilityFacadeREST extends AbstractFacade<ViabilityData> {
+public class ViabilityFacadeREST extends AbstractFacade<KeyValueRecord> {
 
     public ViabilityFacadeREST() {
-        super(ViabilityData.class);
+        super(KeyValueRecord.class);
     }
 
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     public ViabilityPack extjsFindBy(
-            @QueryParam("gid") Integer genotypeId) {
+            @QueryParam("cid") Integer centreId,
+            @QueryParam("gid") Integer genotypeId,
+            @QueryParam("sid") Integer strainId)
+    {
         ViabilityPack p = new ViabilityPack();
-        if (genotypeId == null) {
+        if (centreId == null || genotypeId == null || strainId == null) {
             p.setDataSet(null, 0L);
         } else {
+            try {
             EntityManager em = getEntityManager();
             TypedQuery<KeyValueRecord> q = em.createQuery(
-                    "SELECT DISTINCT new org.mousephenotype.dcc.visualise.entities.KeyValueRecord(q.parameterId, sp.value) FROM Genotype g, Line l, ProcedureFromRaw p, Simpleparameter sp, org.mousephenotype.dcc.entities.context.Context c, Parameter q WHERE g.genotypeId = :genotypeId AND g.genotype = l.colonyid AND l.procedureLineHjid = p AND sp.simpleparameterProcedureH0 = p AND p.hjid = c.subject AND c.isValid = 1 AND c.isActive = 1 AND q.parameterKey = sp.parameterid AND sp.parameterid LIKE :procedureFrag", KeyValueRecord.class);
+                    "SELECT DISTINCT new org.mousephenotype.dcc.visualise.entities.KeyValueRecord(q.parameterKey, q.name, sp.value) FROM Centreprocedure AS cp LEFT JOIN ACentre AS ct ON (ct.shortName = cp.centreid) LEFT JOIN Line AS l ON (l.lineCentreprocedureHjid = cp) LEFT JOIN Genotype AS g ON (g.genotype = l.colonyid) LEFT JOIN ProcedureFromRaw AS p ON (p = l.procedureLineHjid) LEFT JOIN Simpleparameter AS sp ON (sp.simpleparameterProcedureH0 = p) LEFT JOIN Context AS c ON (c.subject = p.hjid) LEFT JOIN Parameter AS q ON (q.parameterKey = sp.parameterid) LEFT JOIN ProcedureHasParameters AS php ON (q = php.parameterId) WHERE ct.centreId = :centreId AND g.genotypeId = :genotypeId AND g.strainId = :strainId AND sp.parameterid like :procedureFrag AND c.isValid = 1 AND c.isActive = 1 ORDER BY php.weight", KeyValueRecord.class);
+            q.setParameter("centreId", centreId);
             q.setParameter("genotypeId", genotypeId);
+            q.setParameter("strainId", strainId);
             q.setParameter("procedureFrag", "%_VIA_%");
-            List<KeyValueRecord> r = q.getResultList();
-            List<ViabilityData> f;
-            f = new ArrayList<>();
-            f.add(new ViabilityData(r));
-            p.setDataSet(f);
+            p.setDataSet(q.getResultList());
             em.close();
+            } catch(Exception e) {
+                System.err.println(e.getMessage());
+            }
         }
         return p;
     }

@@ -15,6 +15,7 @@
  */
 package org.mousephenotype.dcc.visualise.webservice;
 
+import org.mousephenotype.dcc.visualise.persistence.MemcacheHandler;
 import org.mousephenotype.dcc.entities.impress.ParamIncrement;
 import org.mousephenotype.dcc.entities.impress.ProcedureHasParameters;
 import org.mousephenotype.dcc.entities.impress.ParameterHasOptions;
@@ -36,6 +37,7 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 import org.mousephenotype.dcc.visualise.entities.ParameterData;
+import org.mousephenotype.dcc.visualise.entities.ParametersForProcedureType;
 
 /**
  * Web service for retrieving parameters.
@@ -47,6 +49,9 @@ import org.mousephenotype.dcc.visualise.entities.ParameterData;
 public class ParameterFacadeREST extends AbstractFacade<Parameter> {
 
     private EntityManager em;
+    /* Used for diagnostics.
+     private Set<String> without = new HashSet<>();
+     */
 
     public ParameterFacadeREST() {
         super(Parameter.class);
@@ -54,19 +59,21 @@ public class ParameterFacadeREST extends AbstractFacade<Parameter> {
 
     private Integer convertGraphType(String graphType) {
         Integer code = 0;
-        switch (graphType) {
-            case "1D":
-                code = 1;
-                break;
-            case "2D":
-                code = 2;
-                break;
-            case "CATEGORICAL":
-                code = 3;
-                break;
-            case "IMAGE":
-                code = 4;
-                break;
+        if (graphType != null) {
+            switch (graphType) {
+                case "1D":
+                    code = 1;
+                    break;
+                case "2D":
+                    code = 2;
+                    break;
+                case "CATEGORICAL":
+                    code = 3;
+                    break;
+                case "IMAGE":
+                    code = 4;
+                    break;
+            }
         }
         return code;
     }
@@ -82,7 +89,6 @@ public class ParameterFacadeREST extends AbstractFacade<Parameter> {
             }
             em.detach(p);
         }
-        parameterHasoptions.clear();
         return options;
     }
 
@@ -98,8 +104,36 @@ public class ParameterFacadeREST extends AbstractFacade<Parameter> {
             pd.setIncrementValue(pi.getIncrementString());
             em.detach(pi);
         }
-        phic.clear();
         return pd;
+    }
+
+    private Integer getProcedureType(String parameterKey) {
+        ParametersForProcedureType r = null;
+        try {
+            TypedQuery<ParametersForProcedureType> q
+                    = em.createNamedQuery("ParametersForProcedureType.findByParameterKey",
+                            ParametersForProcedureType.class);
+            q.setParameter("parameterKey", parameterKey);
+            q.setMaxResults(1);
+            r = q.getSingleResult();
+        } catch (Exception e) {
+            return -1;
+        }
+        return (r == null ? -1 : r.getProcedureType());
+    }
+
+    private String getEmbryoStage(String parameterKey) {
+        String embryoStage = null;
+        try {
+            TypedQuery<String> q
+                    = em.createQuery("SELECT php.week.label FROM PipelineHasProcedures php WHERE php.procedureId.procedureKey like :procedureFrag",
+                            String.class);
+            q.setParameter("procedureFrag", "%_" + parameterKey.split("_")[1] + "_%");
+            q.setMaxResults(1);
+            embryoStage = q.getSingleResult();
+        } catch (Exception e) {
+        }
+        return embryoStage;
     }
 
     private ParameterData fillParameterDetails(Parameter p) {
@@ -108,22 +142,33 @@ public class ParameterFacadeREST extends AbstractFacade<Parameter> {
             Collection<ProcedureHasParameters> c
                     = p.getProcedureHasParametersCollection();
             Iterator<ProcedureHasParameters> i = c.iterator();
-            if (i.hasNext()) {
+            List<Integer> procedureIds = new ArrayList<>();
+            while (i.hasNext()) {
                 ProcedureHasParameters php = i.next();
-                pd.setProcedureId(php.getProcedureId().getProcedureId());
+                procedureIds.add(php.getProcedureId().getProcedureId());
             }
-
+            pd.setProcedureId(procedureIds);
             pd.setParameterId(p.getParameterId());
             pd.setParameterName(p.getName());
             pd.setStableid(p.getParameterKey());
             pd.setGraphType(convertGraphType(p.getGraphType()));
             pd.setDatatype(p.getValueType());
-            if (p.getUnit() == null)
+            if (p.getUnit() == null) {
                 pd.setUnit("NULL");
-            else
+            } else {
                 pd.setUnit(p.getUnit().getUnit());
+            }
             pd.setOptions(getOptions(p));
             pd = this.fillIncrement(pd, p);
+            Integer pt = getProcedureType(p.getParameterKey());
+            if (pt > -1) {
+                pd.setProcedureType(pt);
+            }
+            pd.setEmbryoStage(getEmbryoStage(p.getParameterKey()));
+            /* Used for diagnostics.
+             else
+             without.add(p.getParameterKey());
+             */
         }
         return pd;
     }
@@ -153,8 +198,15 @@ public class ParameterFacadeREST extends AbstractFacade<Parameter> {
         for (Parameter q : result) {
             parameters.put(q.getParameterId(), fillParameterDetails(q));
             em.detach(q);
-    }
-        result.clear();
+        }
+
+        /* Used for diagnostics.
+         if (without.size() > 0) {
+         System.out.println("Number of parameters without procedure supertype: " + without.size());
+         for (String x : without)
+         System.out.println(x);
+         }
+         */
         return parameters;
     }
 
@@ -169,8 +221,7 @@ public class ParameterFacadeREST extends AbstractFacade<Parameter> {
         for (Parameter q : result) {
             parameters.put(q.getParameterId(), fillParameterDetails(q));
             em.detach(q);
-    }
-        result.clear();
+        }
         return parameters;
     }
 
@@ -181,12 +232,16 @@ public class ParameterFacadeREST extends AbstractFacade<Parameter> {
         em = getEntityManager();
         HashMap<Integer, ParameterData> parameters;
         if (parameterKeys == null || parameterKeys.isEmpty()) {
-            parameters = getAllParameters();
+            MemcacheHandler mh = getMemcacheHandler();
+            parameters = mh.getParameters();
+            if (parameters == null) {
+                parameters = getAllParameters();
+                mh.setParameters(parameters);
+            }
         } else {
             parameters = getSelectedParameters(parameterKeys);
         }
         pp.setDataSet(new ArrayList<>(parameters.values()));
-        parameters.clear();
         em.close();
         return pp;
     }

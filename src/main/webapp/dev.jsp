@@ -25,6 +25,7 @@ limitations under the License.
         <meta http-equiv="X-UA-Compatible" content="chrome=1" />
         <link href='https://fonts.googleapis.com/css?family=Source+Sans+Pro:200,400,600|Roboto:400,100,300,700' rel='stylesheet' type='text/css'>
         <link rel="stylesheet" type="text/css" href="/imageviewer/css/imageviewer.css">
+        <link rel="stylesheet" type="text/css" href="/heatmap/css/phenoview.css">
         <link rel="stylesheet" type="text/css" href="css/visualise.css">
     </head>
     <body>
@@ -49,15 +50,16 @@ limitations under the License.
             dcc.roles = JSON.parse(req.responseText);
         </script>
 
+        <script type="text/javascript" src="js/canvg/rgbcolor.js"></script> 
+        <script type="text/javascript" src="js/canvg/StackBlur.js"></script>
+        <script type="text/javascript" src="js/canvg/canvg.js"></script> 
         <script type="text/javascript" src="js/d3.v3.min.js"></script>
         <script type="text/javascript" src="/imageviewer/js/imageviewer.js"></script>
+        <script type="text/javascript" src="/heatmap/js/phenoview.js"></script>
         <script type="text/javascript" src="js/visualise.js"></script>
 
         <script>
             window.addEventListener('load', function() {
-                dcc.visualise("<%= request.getParameter("gid")%>",
-                    "<%= request.getParameter("qeid")%>");
-
                 var control = parseInt("<%= request.getParameter("ctrl")%>"),
                     pvalueThreshold = parseFloat("<%= request.getParameter("pt")%>");
 
@@ -66,6 +68,9 @@ limitations under the License.
 
                 if (!isNaN(control))
                     dcc.visualisationControl = control;
+
+                dcc.visualise("<%= request.getParameter("gid")%>",
+                    "<%= request.getParameter("qeid")%>");
             });
         </script>
     </body>

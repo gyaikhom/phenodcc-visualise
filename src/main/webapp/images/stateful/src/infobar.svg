@@ -14,7 +14,7 @@
    version="1.1"
    inkscape:version="0.48.3.1 r9886"
    sodipodi:docname="infobar.svg"
-   inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/whisker.png"
+   inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/stateful/annotate.png"
    inkscape:export-xdpi="4.5"
    inkscape:export-ydpi="4.5">
   <metadata
@@ -59,14 +59,24 @@
      id="namedview3057"
      showgrid="false"
      inkscape:zoom="1.05"
-     inkscape:cx="-175.72622"
-     inkscape:cy="300"
+     inkscape:cx="335.5238"
+     inkscape:cy="-114.03511"
      inkscape:window-x="0"
      inkscape:window-y="0"
      inkscape:window-maximized="1"
      inkscape:current-layer="svg3043" />
   <title
      id="title3045">Man and woman (heterosexual) icon</title>
+  <rect
+     style="fill:#898989;fill-opacity:1;stroke:none"
+     id="rect3245"
+     width="63.809525"
+     height="60"
+     x="898.09521"
+     y="257.14285"
+     inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/stateful/annotate.png"
+     inkscape:export-xdpi="4.5"
+     inkscape:export-ydpi="4.5" />
   <rect
      style="opacity:0.98999999;fill:none;stroke:none"
      id="rect3951"
@@ -114,4 +124,194 @@
      inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/stateful/whisker.png"
      inkscape:export-xdpi="4.5"
      inkscape:export-ydpi="4.5" />
+  <path
+     style="fill:none;stroke:#000000;stroke-width:27.89999962;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:1.60000002;stroke-opacity:1;stroke-dasharray:none;marker-end:none"
+     d="m 621.09965,265.13545 c 0,0 45.80618,2.35819 85.16446,-32 39.35828,-34.35819 28.56634,-168 85.16446,-168 56.59812,0 45.26569,133.16998 85.16446,168 39.89877,34.83002 85.16446,32 85.16446,32"
+     id="path3973-2-9-0"
+     inkscape:connector-curvature="0"
+     sodipodi:nodetypes="czzzc"
+     inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/stateful/annotate.png"
+     inkscape:export-xdpi="4.5"
+     inkscape:export-ydpi="4.5" />
+  <path
+     style="fill:none;stroke:#000000;stroke-width:27.89999962;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:1.60000002;stroke-opacity:1;stroke-dasharray:none;marker-end:none"
+     d="m 621.09965,317.13545 340.65784,0"
+     id="path3973-2-9-2-0"
+     inkscape:connector-curvature="0"
+     sodipodi:nodetypes="cc"
+     inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/stateful/annotate.png"
+     inkscape:export-xdpi="4.5"
+     inkscape:export-ydpi="4.5" />
+  <rect
+     style="fill:none;stroke:#000000;stroke-width:35;stroke-miterlimit:1.60000002;stroke-opacity:1;stroke-dasharray:none"
+     id="rect4097"
+     width="372.38098"
+     height="411.42856"
+     x="327.61905"
+     y="377.14285"
+     ry="12.430389"
+     inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/stateful/annotate.png"
+     inkscape:export-xdpi="4.5067215"
+     inkscape:export-ydpi="4.5067215" />
+  <rect
+     style="fill:#898989;fill-opacity:1;stroke:none"
+     id="rect3245-9"
+     width="42.467892"
+     height="37.634312"
+     x="999.0863"
+     y="552.06903"
+     inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/stateful/annotate.png"
+     inkscape:export-xdpi="4.5"
+     inkscape:export-ydpi="4.5" />
+  <path
+     style="fill:none;stroke:#000000;stroke-width:18.02636528;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:1.60000002;stroke-opacity:1;stroke-dasharray:none;marker-end:none"
+     d="m 814.73426,557.08231 c 0,0 30.48592,1.47915 56.68049,-20.07163 26.19458,-21.55078 19.01209,-105.37607 56.68051,-105.37607 37.66839,0 30.1262,83.52934 56.68045,105.37607 26.55429,21.84673 56.68049,20.07163 56.68049,20.07163"
+     id="path3973-2-9-0-6"
+     inkscape:connector-curvature="0"
+     sodipodi:nodetypes="czzzc"
+     inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/stateful/annotate.png"
+     inkscape:export-xdpi="4.5"
+     inkscape:export-ydpi="4.5" />
+  <path
+     style="fill:none;stroke:#000000;stroke-width:18.02636528;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:1.60000002;stroke-opacity:1;stroke-dasharray:none;marker-end:none"
+     d="m 814.73426,589.69872 226.72194,0"
+     id="path3973-2-9-2-0-2"
+     inkscape:connector-curvature="0"
+     sodipodi:nodetypes="cc"
+     inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/stateful/annotate.png"
+     inkscape:export-xdpi="4.5"
+     inkscape:export-ydpi="4.5" />
+  <g
+     id="g4468"
+     transform="translate(-32.857131,10.127779)"
+     inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/stateful/annotate.png"
+     inkscape:export-xdpi="4.5067215"
+     inkscape:export-ydpi="4.5067215"
+     style="stroke-width:35;stroke-miterlimit:1.60000002;stroke-dasharray:none">
+    <g
+       transform="translate(42.857131,-7.6293945e-6)"
+       id="g4429"
+       style="stroke-width:35;stroke-miterlimit:1.60000002;stroke-dasharray:none">
+      <path
+         style="fill:none;stroke:#000000;stroke-width:35;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:1.60000002;stroke-opacity:1;stroke-dasharray:none;marker-end:none"
+         d="m 427.96021,484.50634 198.65784,0"
+         id="path3973-2-9-00-8"
+         inkscape:connector-curvature="0"
+         sodipodi:nodetypes="cc"
+         inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/stateful/whisker.png"
+         inkscape:export-xdpi="4.5"
+         inkscape:export-ydpi="4.5" />
+      <path
+         sodipodi:type="arc"
+         style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:35;stroke-miterlimit:1.60000002;stroke-dasharray:none"
+         id="path4091"
+         sodipodi:cx="464.7619"
+         sodipodi:cy="446.19049"
+         sodipodi:rx="20.476191"
+         sodipodi:ry="20.476191"
+         d="m 485.23809,446.19049 c 0,11.30869 -9.1675,20.47619 -20.47619,20.47619 -11.30869,0 -20.47619,-9.1675 -20.47619,-20.47619 0,-11.30869 9.1675,-20.47619 20.47619,-20.47619 11.30869,0 20.47619,9.1675 20.47619,20.47619 z"
+         transform="translate(-77.234681,38.315846)" />
+    </g>
+    <g
+       id="g4429-5"
+       transform="translate(42.857131,88.223016)"
+       style="stroke-width:35;stroke-miterlimit:1.60000002;stroke-dasharray:none">
+      <path
+         style="fill:none;stroke:#000000;stroke-width:35;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:1.60000002;stroke-opacity:1;stroke-dasharray:none;marker-end:none"
+         d="m 427.96021,484.50634 198.65784,0"
+         id="path3973-2-9-00-8-2"
+         inkscape:connector-curvature="0"
+         sodipodi:nodetypes="cc"
+         inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/stateful/whisker.png"
+         inkscape:export-xdpi="4.5"
+         inkscape:export-ydpi="4.5" />
+      <path
+         sodipodi:type="arc"
+         style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:35;stroke-miterlimit:1.60000002;stroke-dasharray:none"
+         id="path4091-4"
+         sodipodi:cx="464.7619"
+         sodipodi:cy="446.19049"
+         sodipodi:rx="20.476191"
+         sodipodi:ry="20.476191"
+         d="m 485.23809,446.19049 c 0,11.30869 -9.1675,20.47619 -20.47619,20.47619 -11.30869,0 -20.47619,-9.1675 -20.47619,-20.47619 0,-11.30869 9.1675,-20.47619 20.47619,-20.47619 11.30869,0 20.47619,9.1675 20.47619,20.47619 z"
+         transform="translate(-77.234681,38.315846)" />
+    </g>
+    <g
+       id="g4429-2"
+       transform="translate(42.857131,176.44604)"
+       style="stroke-width:35;stroke-miterlimit:1.60000002;stroke-dasharray:none">
+      <path
+         style="fill:none;stroke:#000000;stroke-width:35;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:1.60000002;stroke-opacity:1;stroke-dasharray:none;marker-end:none"
+         d="m 427.96021,484.50634 198.65784,0"
+         id="path3973-2-9-00-8-8"
+         inkscape:connector-curvature="0"
+         sodipodi:nodetypes="cc"
+         inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/stateful/whisker.png"
+         inkscape:export-xdpi="4.5"
+         inkscape:export-ydpi="4.5" />
+      <path
+         sodipodi:type="arc"
+         style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:35;stroke-miterlimit:1.60000002;stroke-dasharray:none"
+         id="path4091-9"
+         sodipodi:cx="464.7619"
+         sodipodi:cy="446.19049"
+         sodipodi:rx="20.476191"
+         sodipodi:ry="20.476191"
+         d="m 485.23809,446.19049 c 0,11.30869 -9.1675,20.47619 -20.47619,20.47619 -11.30869,0 -20.47619,-9.1675 -20.47619,-20.47619 0,-11.30869 9.1675,-20.47619 20.47619,-20.47619 11.30869,0 20.47619,9.1675 20.47619,20.47619 z"
+         transform="translate(-77.234681,38.315846)" />
+    </g>
+  </g>
+  <g
+     id="g4649"
+     inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/stateful/overview.png"
+     inkscape:export-xdpi="4.5067215"
+     inkscape:export-ydpi="4.5067215">
+    <g
+       id="g4642">
+      <rect
+         style="fill:none;stroke:#000000;stroke-width:35;stroke-miterlimit:1.60000002;stroke-opacity:1;stroke-dasharray:none"
+         id="rect4097-9"
+         width="372.38098"
+         height="411.42856"
+         x="-122.38097"
+         y="464.7619"
+         ry="12.430389"
+         inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/stateful/annotate.png"
+         inkscape:export-xdpi="4.5067215"
+         inkscape:export-ydpi="4.5067215" />
+      <rect
+         style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:12.31185818;stroke-miterlimit:1.60000002;stroke-opacity:1;stroke-dasharray:none"
+         id="rect4097-9-2"
+         width="137.68814"
+         height="137.68813"
+         x="-56.863472"
+         y="524.13214"
+         ry="4.1599374"
+         inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/stateful/annotate.png"
+         inkscape:export-xdpi="4.5067215"
+         inkscape:export-ydpi="4.5067215" />
+      <g
+         id="g4638"
+         transform="translate(-12.662248,0)">
+        <path
+           inkscape:export-ydpi="4.5"
+           inkscape:export-xdpi="4.5"
+           inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/stateful/whisker.png"
+           sodipodi:nodetypes="cc"
+           inkscape:connector-curvature="0"
+           id="path3973-2-9-00-8-5"
+           d="m -52.857154,729.49126 258.657854,0"
+           style="fill:none;stroke:#000000;stroke-width:35;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:1.60000002;stroke-opacity:1;stroke-dasharray:none;marker-end:none" />
+        <path
+           inkscape:export-ydpi="4.5"
+           inkscape:export-xdpi="4.5"
+           inkscape:export-filename="/home/gyaikhom/work/yaikhom/projects/phenodcc-visualise/src/main/webapp/images/stateful/whisker.png"
+           sodipodi:nodetypes="cc"
+           inkscape:connector-curvature="0"
+           id="path3973-2-9-00-8-5-8"
+           d="m -52.857154,800 258.657834,0"
+           style="fill:none;stroke:#000000;stroke-width:35;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:1.60000002;stroke-opacity:1;stroke-dasharray:none;marker-end:none" />
+      </g>
+    </g>
+  </g>
 </svg>

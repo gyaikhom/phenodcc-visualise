@@ -37,4 +37,5 @@ cd doc;
 ./prepare.sh;
 cd ..;
 cp doc/manual.html .;
+cp doc/download.html .;
 rm -Rf doc;

@@ -20,20 +20,30 @@ package org.mousephenotype.dcc.visualise.entities;
  */
 public class KeyValueRecord {
 
-    private Integer key;
+    private String key;
+    private String name;
     private String value;
 
-    public KeyValueRecord(Integer key, String value) {
+    public KeyValueRecord(String key, String name, String value) {
         this.key = key;
+        this.name = name;
         this.value = value;
     }
 
-    public Integer getKey() {
+    public String getKey() {
         return key;
     }
 
-    public void setKey(Integer key) {
+    public void setKey(String key) {
         this.key = key;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
     }
 
     public String getValue() {

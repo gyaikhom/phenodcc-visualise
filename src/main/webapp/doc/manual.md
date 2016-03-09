@@ -1,6 +1,6 @@
 % Users' Manual: _Phenoview - The Data Visualisation Web Application_
 % Gagarine Yaikhom
-% Last updated: 11 December 2013
+% Last updated: 2 February 2015
 
 <div class="version">This users' manual describes version 1 of 
 _Phenoview_.</div>
@@ -63,9 +63,57 @@ data is displayed to the user. In the above example, Phenoview is
 currently displaying all of the centres that are providing the
 phenotype data.
 
+## Phenotype Heatmap
+
+The Phenotype Heatmap is a two-dimensional grid which displays the
+results of statistical analysis on the available measurements. It
+provides a quick summary of the gene-parameter combinations for which
+there are measurements, and highlight the cell if there are any
+statistically significant annotations. This is shown below:
+
+![Phenotype heatmap][phenotype_heatmap1]
+
+Each cell in the heatmap displays the statistical analysis result for
+a gene-phenotype combination. It displays annotations for both
+zygosity and sexual dimorphism. When a user hovers over a
+gene-phenotype cell with detected phenodeviance, Phenoview displays a
+pop-up dialog with details such as the ontology of the annotation,
+such as "Increased heart rate", and the calculated _p_-values. This
+provides a quick summrary of the interesting phenotypes. Clicking on
+the cell displays a visualisation of the gene-phenotype combination,
+which is a preview of the measurements.
+
+To make browsing of the phenotypes easier, all of the related
+parameters are group into phenotype categories. These categories are
+displayed at the start of the web-application. By clicking on the
+phenotype category or the _p_-value cells, users can drill down the
+category to explore parameters that are classed under the same
+category. This is shown below:
+
+![Phenotype heatmap (expanding phenotype categories)][phenotype_heatmap2]
+
+At the parameter-level, users can select and add parameters to the
+basket for comparative visualisation by simply clicking on the row
+headers. A basket button will appear on the row header cell. Clicking
+again on the cell will remove the parameter from the basket.
+To return to the higher-level categories, users should click on the
+_phenotype navigator_ at the top of the heatmap.
+
+Similarly, to make searching for genes easier, the heatmap displays a
+gene index, where genes are grouped by the starting alphabet of their
+gene symbol. Furthermore, a search box is provided next to the header
+to search for specific genes by their gene symbol. To select and add a
+specific gene to the basket for comparative visualisation, users can
+click on the column headers. A basket icon should appear on the
+cell. Clicking again on the cell should remove the gene from the
+basket.
+
+In the rest of the documentation, we describe other approaches to
+selection gene-phenotype combinations for comparative visualisation.
+
 ## Selecting genes
 
-To select genes, the user has two options. These are:
+To select genes from a list, the user has two options. These are:
 
 1. **Centre oriented** In this approach, the user wishes to look for
    genes that are being phenotyped by a particular centre. To do this,
@@ -103,7 +151,7 @@ To select genes, the user has two options. These are:
 
 ## Selecting parameters
 
-To select parameters, the user has two options. These are:
+To select parameters from a list, the user has two options. These are:
 
 1. **Procedure oriented** In this approach, the user wishes to look for
    parameters whose measurements are recorded under a specific
@@ -280,6 +328,10 @@ require, and have set the p-value threshold to 0.00005:
 
     ?gid=20-19-11,377-35-4&qeid=IMPC_GRS_001_001,IMPC_GRS_002_001&ctrl=113121&pt=0.00005
 
+# Downloading the measurements programmatically
+
+The application programming interface for URL-based automated download of measurements are provided [here](download.html).
+
 # Acknowledgements
 
 The web application was developed using [Java][java], [MySQL
@@ -321,6 +373,8 @@ database][mysql], [D3JS (Data-Driven Documents)][d3js] and icons from
 [zoom]: images/zoom.png
 [zygosity]: images/zygosity.png
 [controls]: images/controls.png
+[phenotype_heatmap1]: images/phenotype_heatmap1.png
+[phenotype_heatmap2]: images/phenotype_heatmap2.png
 
 
 [impress]: https://www.mousephenotype.org/impress

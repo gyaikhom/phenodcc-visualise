@@ -18,3 +18,4 @@
 # @author Gagarine Yaikhom <g.yaikhom@har.mrc.ac.uk>
 #
 pandoc -o manual.html --toc --self-contained -H style.html manual.md;
+pandoc -o download.html --toc --self-contained -H style.html download.md;

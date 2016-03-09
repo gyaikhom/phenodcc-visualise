@@ -15,6 +15,7 @@
  */
 package org.mousephenotype.dcc.visualise.entities;
 
+import java.io.Serializable;
 import javax.xml.bind.annotation.XmlElement;
 
 /**
@@ -23,7 +24,7 @@ import javax.xml.bind.annotation.XmlElement;
  *
  * @author gyaikhom
  */
-public class ProcedureData {
+public class ProcedureData implements Serializable {
 
     private Integer procedureId;
     private String stableid;

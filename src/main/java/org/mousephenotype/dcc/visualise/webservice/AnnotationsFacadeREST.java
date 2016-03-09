@@ -15,6 +15,7 @@
  */
 package org.mousephenotype.dcc.visualise.webservice;
 
+import java.util.Date;
 import org.mousephenotype.dcc.visualise.entities.MpDetails;
 import java.util.List;
 import javax.ejb.Stateless;
@@ -74,6 +75,10 @@ public class AnnotationsFacadeREST extends AbstractFacade<AnnotationData> {
                 }
             }
             p.setDataSet(temp);
+            
+            TypedQuery<Date> tq = em.createQuery("SELECT s.started FROM AnnotationSession s ORDER BY s.sessionId DESC", Date.class);
+            tq.setMaxResults(1);
+            p.setLastUpdate(tq.getSingleResult());
             em.close();
         }
         return p;

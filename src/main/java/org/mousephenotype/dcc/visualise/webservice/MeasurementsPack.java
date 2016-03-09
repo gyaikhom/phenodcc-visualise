@@ -15,12 +15,14 @@
  */
 package org.mousephenotype.dcc.visualise.webservice;
 
+import java.util.Date;
 import java.util.List;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlSeeAlso;
 import javax.xml.bind.annotation.XmlType;
 import org.mousephenotype.dcc.entities.overviews.MeasuredValues;
 import org.mousephenotype.dcc.entities.overviews.MetadataGroupToValues;
+import org.mousephenotype.dcc.visualise.entities.AssociatedMedia;
 
 /**
  * Response package for measurements data returned by the 
@@ -34,7 +36,9 @@ public class MeasurementsPack extends AbstractRestResponse<MeasuredValues> {
     private final int QC_DONE = 0;    
     private int qcStatus = QC_DONE;
     private List<MetadataGroupToValues> metadataGroups;
-
+    private AssociatedMedia associatedMedia;
+    private Date lastUpdate;
+    
     public int getQcStatus() {
         return qcStatus;
     }
@@ -50,10 +54,27 @@ public class MeasurementsPack extends AbstractRestResponse<MeasuredValues> {
     public void setMetadataGroups(List<MetadataGroupToValues> metadataGroups) {
         this.metadataGroups = metadataGroups;
     }
+
+    public AssociatedMedia getAssociatedMedia() {
+        return associatedMedia;
+    }
+
+    public void setAssociatedMedia(AssociatedMedia associatedMediaParameter) {
+        this.associatedMedia = associatedMediaParameter;
+    }
+
+    public Date getLastUpdate() {
+        return lastUpdate;
+    }
+
+    public void setLastUpdate(Date lastUpdate) {
+        this.lastUpdate = lastUpdate;
+    }
     
     @Override
     @XmlElement(name = "measurements")
     public List<MeasuredValues> getDataSet() {
         return super.getDataSet();
     }
+
 }
